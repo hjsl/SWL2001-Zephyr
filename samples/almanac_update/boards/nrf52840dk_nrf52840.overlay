@@ -21,7 +21,7 @@
         busy-gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>;
         event-gpios = <&gpio1 6 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN) >;
 
-		lf-tx-path = <LR11XX_TX_PATH_LF_LP_HP>;
+	lf-tx-path = <LR11XX_TX_PATH_LF_LP_HP>;
 
         tcxo-supply = <LR11XX_TCXO_SUPPLY_1_8V>;
         tcxo-wakeup-time = <5>;

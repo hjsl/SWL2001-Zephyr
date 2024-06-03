@@ -48,10 +48,8 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 
-#include <smtc_basic_modem_lr11xx_api_extension.h>
 #include <smtc_modem_api.h>
 #include <smtc_modem_api_str.h>
-#include <smtc_modem_middleware_advanced_api.h>
 
 #include <smtc_modem_hal_init.h>
 
@@ -70,6 +68,12 @@ static struct smtc_app_lorawan_cfg *prv_cfg;
 
 /* Callbacks for HAL implementation */
 static struct smtc_modem_hal_cb prv_hal_cb;
+
+/* Set of variables ot hold RX data. */
+static uint8_t                  rx_payload[SMTC_MODEM_MAX_LORAWAN_PAYLOAD_LENGTH] = { 0 };  // Buffer for rx payload
+static uint8_t                  rx_payload_size = 0;      // Size of the payload in the rx_payload buffer
+static smtc_modem_dl_metadata_t rx_metadata     = { 0 };  // Metadata of downlink
+static uint8_t                  rx_remaining    = 0;      // Remaining downlink payload in modem
 
 /* macro to ease repeated error checking in apps_modem_common_init */
 #define SMTC_ERR_CHECK(func_name, rc)                                                              \
@@ -128,10 +132,10 @@ static int prv_get_voltage_cb(uint32_t *value)
 	return prv_env_callbacks->get_voltage_level(value);
 }
 
-void smtc_app_init(const ralf_t *radio, struct smtc_app_event_callbacks *callbacks,
+void smtc_app_init(const struct device *dev, struct smtc_app_event_callbacks *callbacks,
 		   struct smtc_app_env_callbacks *env_callbacks)
 {
-	__ASSERT(radio, "radio must be provided");
+	__ASSERT(dev, "device must be provided");
 	__ASSERT(callbacks, "callbacks must be provided");
 	/* env_callbacks can be NULL */
 #ifdef CONFIG_LORA_BASICS_MODEM_USER_STORAGE_IMPL
@@ -154,9 +158,10 @@ void smtc_app_init(const ralf_t *radio, struct smtc_app_event_callbacks *callbac
 #endif
 	};
 
-	smtc_modem_hal_init((const struct device *)radio->ral.context, &prv_hal_cb);
+	smtc_modem_hal_init(dev, &prv_hal_cb);
+	smtc_modem_set_radio_context(dev);
 
-	smtc_modem_init(radio, &prv_event_process);
+	smtc_modem_init(&prv_event_process);
 }
 
 smtc_modem_return_code_t smtc_app_configure_lorawan_params(uint8_t stack_id,
@@ -179,11 +184,11 @@ smtc_modem_return_code_t smtc_app_configure_lorawan_params(uint8_t stack_id,
 	rc = smtc_modem_set_nwkkey(stack_id, cfg->app_key);
 	SMTC_ERR_CHECK("smtc_modem_set_nwkkey", rc);
 
-	rc = smtc_modem_set_class(stack_id, cfg->class);
-	SMTC_ERR_CHECK("smtc_modem_set_class", rc);
+	// rc = smtc_modem_set_class(stack_id, cfg->class);
+	// SMTC_ERR_CHECK("smtc_modem_set_class", rc);
 
-	rc = smtc_modem_set_region(stack_id, cfg->region);
-	SMTC_ERR_CHECK("smtc_modem_set_region", rc);
+	// rc = smtc_modem_set_region(stack_id, cfg->region);
+	// SMTC_ERR_CHECK("smtc_modem_set_region", rc);
 
 	/* Print what was set */
 	LOG_INF("Configured LoRaWAN parameters:");
@@ -199,7 +204,6 @@ smtc_modem_return_code_t smtc_app_configure_lorawan_params(uint8_t stack_id,
 void smtc_app_display_versions(void)
 {
 	smtc_modem_return_code_t rc = SMTC_MODEM_RC_OK;
-	smtc_modem_lorawan_version_t version;
 	smtc_modem_version_t firmware_version;
 
 	rc = smtc_modem_get_modem_version(&firmware_version);
@@ -207,24 +211,11 @@ void smtc_app_display_versions(void)
 		LOG_INF("LoRa Basics Modem version: %d.%d.%d", firmware_version.major,
 			firmware_version.minor, firmware_version.patch);
 	}
-
-	rc = smtc_modem_get_lorawan_version(&version);
-	if (rc == SMTC_MODEM_RC_OK) {
-		LOG_INF("LoRaWAN version: %d.%d.%d.%d", version.major, version.minor, version.patch,
-			version.revision);
-	}
-
-	rc = smtc_modem_get_regional_params_version(&version);
-	if (rc == SMTC_MODEM_RC_OK) {
-		LOG_INF("Regional parameters version: %d.%d.%d.%d", version.major, version.minor,
-			version.patch, version.revision);
-	}
 }
 
 smtc_modem_return_code_t smtc_app_get_gps_time(uint32_t *gps_time)
 {
-	uint32_t gps_fractional_s = 0;
-	return smtc_modem_get_time(gps_time, &gps_fractional_s);
+	return smtc_modem_get_alcsync_time(0, gps_time);
 }
 
 smtc_modem_return_code_t smtc_app_get_utc_time(uint32_t *utc_time)
@@ -292,28 +283,30 @@ static void prv_event_process(void)
 					break;
 				case SMTC_MODEM_EVENT_DOWNDATA:
 					LOG_DBG("DOWNLINK EVENT");
+
+					return_code = smtc_modem_get_downlink_data( rx_payload, &rx_payload_size, &rx_metadata, &rx_remaining );
 					LOG_DBG("Rx window: %s (%d)",
-						smtc_modem_event_downdata_window_to_str(
-							current_event.event_data.downdata.window),
-						current_event.event_data.downdata.window);
+						smtc_modem_dl_window_to_str(
+							rx_metadata.window),
+						rx_metadata.window);
 					LOG_DBG("Rx port: %d",
-						current_event.event_data.downdata.fport);
+						rx_metadata.fport);
 					LOG_DBG("Rx RSSI: %d",
-						current_event.event_data.downdata.rssi - 64);
+						rx_metadata.rssi - 64);
 					LOG_DBG("Rx SNR: %d",
-						current_event.event_data.downdata.snr / 4);
+						rx_metadata.snr / 4);
 
 					if (prv_callbacks->down_data != NULL) {
 						prv_callbacks->down_data(
-							current_event.event_data.downdata.rssi,
-							current_event.event_data.downdata.snr,
-							current_event.event_data.downdata.window,
-							current_event.event_data.downdata.fport,
-							current_event.event_data.downdata.data,
-							current_event.event_data.downdata.length);
+							rx_metadata.rssi,
+							rx_metadata.snr,
+							rx_metadata.window,
+							rx_metadata.fport,
+							rx_payload,
+							rx_payload_size);
 					}
 					break;
-				case SMTC_MODEM_EVENT_UPLOADDONE:
+				case SMTC_MODEM_EVENT_UPLOAD_DONE:
 					LOG_DBG("UPLOAD DONE EVENT");
 					LOG_DBG("Upload status: %s (%d)",
 						smtc_modem_event_uploaddone_status_to_str(
@@ -324,15 +317,15 @@ static void prv_event_process(void)
 							current_event.event_data.uploaddone.status);
 					}
 					break;
-				case SMTC_MODEM_EVENT_SETCONF:
+				case SMTC_MODEM_EVENT_DM_SET_CONF:
 					LOG_DBG("SET CONF EVENT");
-					LOG_DBG("Tag: %s (%d)",
-						smtc_modem_event_setconf_tag_to_str(
-							current_event.event_data.setconf.tag),
-						current_event.event_data.setconf.tag);
+					LOG_DBG("Opcode: %s (%d)",
+						smtc_modem_event_setconf_opcode_to_str(
+							current_event.event_data.setconf.opcode),
+						current_event.event_data.setconf.opcode);
 					if (prv_callbacks->set_conf != NULL) {
 						prv_callbacks->set_conf(
-							current_event.event_data.setconf.tag);
+							current_event.event_data.setconf.opcode);
 					}
 					break;
 				case SMTC_MODEM_EVENT_MUTE:
@@ -346,87 +339,28 @@ static void prv_event_process(void)
 							current_event.event_data.mute.status);
 					}
 					break;
-				case SMTC_MODEM_EVENT_STREAMDONE:
+				case SMTC_MODEM_EVENT_STREAM_DONE:
 					LOG_DBG("STREAM DONE EVENT");
 					if (prv_callbacks->stream_done != NULL) {
 						prv_callbacks->stream_done();
 					}
 					break;
-				case SMTC_MODEM_EVENT_TIME:
-					LOG_DBG("TIME EVENT");
-					LOG_DBG("Time: %s (%d)",
-						smtc_modem_event_time_status_to_str(
-							current_event.event_data.time.status),
-						current_event.event_data.time.status);
-					if (prv_callbacks->time_updated_alc_sync != NULL) {
-						prv_callbacks->time_updated_alc_sync(
-							current_event.event_data.time.status);
-					}
-					break;
-				case SMTC_MODEM_EVENT_TIMEOUT_ADR_CHANGED:
-					LOG_DBG("ADR CHANGED EVENT");
-					if (prv_callbacks->adr_mobile_to_static != NULL) {
-						prv_callbacks->adr_mobile_to_static();
-					}
-					break;
-				case SMTC_MODEM_EVENT_NEW_LINK_ADR:
-					LOG_DBG("NEW LINK ADR EVENT");
-					if (prv_callbacks->new_link_adr != NULL) {
-						prv_callbacks->new_link_adr();
+				case SMTC_MODEM_EVENT_ALCSYNC_TIME:
+					LOG_DBG("ALCSYNC TIME EVENT");
+					if (prv_callbacks->alcsync_time != NULL) {
+						prv_callbacks->alcsync_time();
 					}
 					break;
 				case SMTC_MODEM_EVENT_LINK_CHECK:
 					LOG_DBG("LINK CHECK EVENT");
-					LOG_DBG("Link status: %s (%d)",
-						smtc_modem_event_link_check_status_to_str(
-							current_event.event_data.link_check.status),
-						current_event.event_data.link_check.status);
-					LOG_DBG("Margin: %d dB",
-						current_event.event_data.link_check.margin);
-					LOG_DBG("Number of gateways: %d",
-						current_event.event_data.link_check.gw_cnt);
-					if (prv_callbacks->link_status != NULL) {
-						prv_callbacks->link_status(
-							current_event.event_data.link_check.status,
-							current_event.event_data.link_check.margin,
-							current_event.event_data.link_check.gw_cnt);
-					}
-					break;
-				case SMTC_MODEM_EVENT_ALMANAC_UPDATE:
-					LOG_DBG("ALMANAC UPDATE EVENT");
-					LOG_DBG("Almanac update status: %s (%d)",
-						smtc_modem_event_almanac_update_status_to_str(
-							current_event.event_data.almanac_update
-								.status),
-						current_event.event_data.almanac_update.status);
-					if (prv_callbacks->almanac_update != NULL) {
-						prv_callbacks->almanac_update(
-							current_event.event_data.almanac_update
-								.status);
-					}
-					break;
-				case SMTC_MODEM_EVENT_USER_RADIO_ACCESS:
-					LOG_DBG("USER RADIO ACCESS EVENT");
-					if (prv_callbacks->user_radio_access != NULL) {
-						prv_callbacks->user_radio_access(
-							current_event.event_data.user_radio_access
-								.timestamp_ms,
-							current_event.event_data.user_radio_access
-								.status);
+					if (prv_callbacks->link_check != NULL) {
+						prv_callbacks->link_check();
 					}
 					break;
 				case SMTC_MODEM_EVENT_CLASS_B_PING_SLOT_INFO:
 					LOG_DBG("CLASS B PING SLOT EVENT");
-					LOG_DBG("Class B ping slot status: %s (%d)",
-						smtc_modem_event_class_b_ping_slot_status_to_str(
-							current_event.event_data
-								.class_b_ping_slot_info.status),
-						current_event.event_data.class_b_ping_slot_info
-							.status);
 					if (prv_callbacks->class_b_ping_slot_info != NULL) {
-						prv_callbacks->class_b_ping_slot_info(
-							current_event.event_data
-								.class_b_ping_slot_info.status);
+						prv_callbacks->class_b_ping_slot_info();
 					}
 					break;
 				case SMTC_MODEM_EVENT_CLASS_B_STATUS:
@@ -441,32 +375,6 @@ static void prv_event_process(void)
 							current_event.event_data.class_b_status
 								.status);
 					}
-					break;
-				case SMTC_MODEM_EVENT_MIDDLEWARE_1:
-					LOG_DBG("MIDDLEWARE_1 EVENT");
-					if (prv_callbacks->middleware_1 != NULL) {
-						prv_callbacks->middleware_1(
-							current_event.event_data
-								.middleware_event_status.status);
-					}
-					break;
-				case SMTC_MODEM_EVENT_MIDDLEWARE_2:
-					LOG_DBG("MIDDLEWARE_2 EVENT");
-					if (prv_callbacks->middleware_2 != NULL) {
-						prv_callbacks->middleware_2(
-							current_event.event_data
-								.middleware_event_status.status);
-					}
-					break;
-				case SMTC_MODEM_EVENT_MIDDLEWARE_3:
-					LOG_DBG("MIDDLEWARE_3 EVENT");
-					if (prv_callbacks->middleware_3 != NULL) {
-						prv_callbacks->middleware_3(
-							current_event.event_data
-								.middleware_event_status.status);
-					}
-					break;
-				case SMTC_MODEM_EVENT_NONE:
 					break;
 				default:
 					LOG_DBG("UNKNOWN EVENT");

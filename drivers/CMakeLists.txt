@@ -15,10 +15,6 @@ zephyr_library_sources(
 	smtc/smtc_modem_core/smtc_modem_crypto/smtc_modem_crypto.c
 )
 
-# USE_GNSS
-zephyr_library_sources(smtc/smtc_modem_core/smtc_modem_services/src/almanac_update/almanac_update.c)
-zephyr_library_compile_definitions(ENABLE_MODEM_GNSS_FEATURE)
-
 # CRYPTO = SOFT
 zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_CRYPTOGRAPHY_SOFT
     smtc/smtc_modem_core/smtc_modem_crypto/soft_secure_element/aes.c
@@ -75,10 +71,11 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_REGION_WW_2G4 smtc/smtc_mo
 # Some defines from common.mk that we probably don't need (they conditionally add some files and some defines)
 # MODEM_TRACE, MODEM_DEEP_TRACE, PERF_TEST, MIDDLEWARE
 
+zephyr_library_compile_definitions(NUMBER_OF_STACKS=1)
+
 # these sources are always included
 zephyr_library_sources(
-    smtc/smtc_modem_core/device_management/dm_downlink.c
-    smtc/smtc_modem_core/device_management/modem_context.c
+    smtc/smtc_modem_core/modem_services/cloud_dm_package/cloud_dm_package.c
 
     smtc/smtc_modem_core/lorawan_api/lorawan_api.c
 
@@ -92,20 +89,26 @@ zephyr_library_sources(
 	smtc/smtc_modem_core/lr1mac/src/lr1mac_class_b/smtc_beacon_sniff.c
 	smtc/smtc_modem_core/lr1mac/src/lr1mac_class_b/smtc_ping_slot.c
 
-    smtc/smtc_modem_core/modem_core/smtc_modem.c
-    smtc/smtc_modem_core/modem_core/smtc_modem_test.c
+    smtc/smtc_modem_core/smtc_modem.c
+    smtc/smtc_modem_core/smtc_modem_test.c
 
-    smtc/smtc_modem_core/modem_services/fifo_ctrl.c
-    smtc/smtc_modem_core/modem_services/modem_utilities.c
-    smtc/smtc_modem_core/modem_services/smtc_modem_services_hal.c
-    smtc/smtc_modem_core/modem_services/lorawan_certification.c
+    smtc/smtc_modem_core/modem_utilities/fifo_ctrl.c
+    smtc/smtc_modem_core/modem_utilities/modem_core.c
+    smtc/smtc_modem_core/modem_utilities/modem_event_utilities.c
 
-    smtc/smtc_modem_core/modem_supervisor/modem_supervisor.c
+    smtc/smtc_modem_core/lorawan_packages/lorawan_certification/lorawan_certification.c
+
+    smtc/smtc_modem_core/modem_supervisor/modem_supervisor_light.c
+    smtc/smtc_modem_core/modem_supervisor/modem_tx_protocol_manager.c
 
     smtc/smtc_modem_core/smtc_modem_crypto/smtc_modem_crypto.c
 
     smtc/smtc_modem_core/radio_planner/src/radio_planner.c
-    smtc/smtc_modem_core/radio_planner/src/radio_planner_hal.c
+
+    smtc/smtc_modem_core/lorawan_manager/lorawan_cid_request_management.c
+    smtc/smtc_modem_core/lorawan_manager/lorawan_dwn_ack_management.c
+    smtc/smtc_modem_core/lorawan_manager/lorawan_join_management.c
+    smtc/smtc_modem_core/lorawan_manager/lorawan_send_management.c
 )
 
 # private includes
@@ -113,31 +116,38 @@ zephyr_library_sources(
 zephyr_library_include_directories(
     smtc/smtc_modem_api
     smtc/smtc_modem_core
-    # we don't include modem_config since we provide our own implementation
-    # smtc/smtc_modem_core/modem_config
-    smtc/smtc_modem_core/modem_core
-    smtc/smtc_modem_core/modem_supervisor
-    smtc/smtc_modem_core/device_management
-    smtc/smtc_modem_core/modem_services
+    smtc/smtc_modem_core/geolocation_services
     smtc/smtc_modem_core/lorawan_api
-    smtc/smtc_modem_core/smtc_modem_services/headers
-    smtc/smtc_modem_core/smtc_modem_services/src
-    smtc/smtc_modem_core/smtc_modem_services/src/stream
-    smtc/smtc_modem_core/smtc_modem_services/src/file_upload
-    smtc/smtc_modem_core/smtc_modem_services/src/alc_sync
-    smtc/smtc_modem_core/smtc_modem_services
-    smtc/smtc_modem_core/smtc_ral/src
-    smtc/smtc_modem_core/smtc_ralf/src
+    smtc/smtc_modem_core/lorawan_manager
+    smtc/smtc_modem_core/lorawan_packages/application_layer_clock_synchronization
+    smtc/smtc_modem_core/lorawan_packages/firmware_management_protocol
+    smtc/smtc_modem_core/lorawan_packages/fragmented_data_block_transport
+    smtc/smtc_modem_core/lorawan_packages/lorawan_certification
+    smtc/smtc_modem_core/lorawan_packages/multi_package_access
+    smtc/smtc_modem_core/lorawan_packages/remote_multicast_setup
     smtc/smtc_modem_core/lr1mac
     smtc/smtc_modem_core/lr1mac/src
+    smtc/smtc_modem_core/lr1mac/src/relay/common
+    smtc/smtc_modem_core/lr1mac/src/relay/relay_tx
     smtc/smtc_modem_core/lr1mac/src/services
-    smtc/smtc_modem_core/lr1mac/src/lr1mac_class_c
+    smtc/smtc_modem_core/lr1mac/src/smtc_real/src
     smtc/smtc_modem_core/lr1mac/src/lr1mac_class_b
+    smtc/smtc_modem_core/modem_services
+    smtc/smtc_modem_core/modem_services/almanac_packages
+    smtc/smtc_modem_core/modem_services/beacon_tx_service
+    smtc/smtc_modem_core/modem_services/cloud_dm_package
+    smtc/smtc_modem_core/modem_services/lfu_service
+    smtc/smtc_modem_core/modem_services/relay_service
+    smtc/smtc_modem_core/modem_services/service_template
+    smtc/smtc_modem_core/modem_services/store_and_forward
+    smtc/smtc_modem_core/modem_services/stream_packages
+    smtc/smtc_modem_core/modem_supervisor
+    smtc/smtc_modem_core/modem_utilities
     smtc/smtc_modem_core/radio_planner/src
     smtc/smtc_modem_core/smtc_modem_crypto
     smtc/smtc_modem_core/smtc_modem_crypto/smtc_secure_element
-    smtc/smtc_modem_core/lorawan_api
-    smtc/smtc_modem_core/lr1mac/src/smtc_real/src
+    smtc/smtc_modem_core/smtc_ralf/src
+    smtc/smtc_modem_core/smtc_ral/src
     smtc/smtc_modem_hal
     smtc/
 )
@@ -167,6 +177,18 @@ zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_TIME_SYNC ADD_
 zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_TIME_SYNC
     smtc/smtc_modem_core/modem_services/smtc_clock_sync.c
     smtc/smtc_modem_core/smtc_modem_services/src/alc_sync/alc_sync.c
+)
+
+# ADD_APP_GEOLOCATION
+zephyr_library_compile_definitions_ifdef(CONFIG CONFIG_LORA_BASICS_MODEM_GEOLOCATION ADD_APP_GEOLOCATION)
+zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION
+    smtc/smtc_modem_core/geolocation_services/gnss_helpers.c
+    smtc/smtc_modem_core/geolocation_services/mw_gnss_almanac.c
+    smtc/smtc_modem_core/geolocation_services/mw_gnss_scan.c
+    smtc/smtc_modem_core/geolocation_services/mw_gnss_send.c
+    smtc/smtc_modem_core/geolocation_services/mw_wifi_scan.c
+    smtc/smtc_modem_core/geolocation_services/mw_wifi_send.c
+    smtc/smtc_modem_core/geolocation_services/wifi_helpers.c
 )
 
 # ----- public includes (visible outside of the library) -----
@@ -202,6 +224,7 @@ zephyr_include_directories(smtc_modem_hal_impl)
 
 # radio abstraction implementation
 zephyr_library_sources(ral_lr11xx_bsp_impl/ral_lr11xx_bsp.c)
+zephyr_library_sources(ral_lr11xx_bsp_impl/radio_utilities.c)
 zephyr_library_include_directories(ral_lr11xx_bsp_impl)
 
 # custom logging to hook into zephyr LOG correctly

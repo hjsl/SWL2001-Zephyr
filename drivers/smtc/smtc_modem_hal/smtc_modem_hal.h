@@ -31,8 +31,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __SMTC_MODEM_HAL_H__
-#define __SMTC_MODEM_HAL_H__
+#ifndef SMTC_MODEM_HAL_H
+#define SMTC_MODEM_HAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,41 +52,25 @@ extern "C" {
  */
 
 /**
- * @brief Panic function for mcu issues
+ * @brief Panic macro for modem issues
  */
-#define smtc_modem_hal_mcu_panic( ... )                            \
-    do                                                             \
-    {                                                              \
-        smtc_modem_hal_store_crashlog( ( uint8_t* ) __func__ );    \
-        smtc_modem_hal_set_crashlog_status( true );                \
-        SMTC_MODEM_HAL_TRACE_ERROR( "crash log :%s\n", __func__ ); \
-        SMTC_MODEM_HAL_TRACE_ERROR( "-> "__VA_ARGS__ );            \
-        smtc_modem_hal_reset_mcu( );                               \
+
+#define SMTC_MODEM_HAL_PANIC( ... )                                                \
+    do                                                                             \
+    {                                                                              \
+        smtc_modem_hal_on_panic( ( uint8_t* ) __func__, __LINE__, ""__VA_ARGS__ ); \
     } while( 0 );
 
 /**
- * @brief Panic function for lr1mac issues
- */
-#define smtc_modem_hal_lr1mac_panic( ... )                         \
-    do                                                             \
-    {                                                              \
-        smtc_modem_hal_store_crashlog( ( uint8_t* ) __func__ );    \
-        smtc_modem_hal_set_crashlog_status( true );                \
-        SMTC_MODEM_HAL_TRACE_ERROR( "crash log :%s\n", __func__ ); \
-        SMTC_MODEM_HAL_TRACE_ERROR( "-> "__VA_ARGS__ );            \
-        smtc_modem_hal_reset_mcu( );                               \
-    } while( 0 );
-
-/**
- * @brief  The smtc_modem_hal_assert macro is used for function's parameters check.
- * @param  expr If expr is false, it calls smtc_modem_hal_assert_fail function
+ * @brief  The SMTC_MODEM_HAL_PANIC_ON_FAILURE macro is used for function's parameters check.
+ * @param  expr If expr is false, it calls smtc_modem_hal_on_panic function
  *         which reports the name of the source function and the source
  *         line number of the call that failed.
  *         If expr is true, it returns no value.
  * @retval None
  */
-#define smtc_modem_hal_assert( expr ) \
-    ( ( expr ) ? ( void ) 0U : smtc_modem_hal_assert_fail( ( uint8_t* ) __func__, __LINE__ ) )
+#define SMTC_MODEM_HAL_PANIC_ON_FAILURE( expr ) \
+    ( ( expr ) ? ( void ) 0U : smtc_modem_hal_on_panic( ( uint8_t* ) __func__, __LINE__, #expr ) )
 
 /**
  * @brief Document that a parameter is unused
@@ -103,7 +87,7 @@ extern "C" {
 /**
  * @brief Crash log size in byte
  */
-#define CRASH_LOG_SIZE 32
+#define CRASH_LOG_SIZE 242
 
 /*
  * -----------------------------------------------------------------------------
@@ -116,10 +100,11 @@ extern "C" {
 typedef enum
 {
     CONTEXT_MODEM,
-    CONTEXT_LR1MAC,
-    CONTEXT_DEVNONCE,
+    CONTEXT_KEY_MODEM,
+    CONTEXT_LORAWAN_STACK,
+    CONTEXT_FUOTA,
     CONTEXT_SECURE_ELEMENT,
-    MODEM_CONTEXT_TYPE_SIZE
+    CONTEXT_STORE_AND_FORWARD,
 } modem_context_type_t;
 
 /*
@@ -160,24 +145,6 @@ void smtc_modem_hal_reload_wdog( void );
 uint32_t smtc_modem_hal_get_time_in_s( void );
 
 /**
- * @brief Returns the compensated current time in seconds
- *
- * @remark Used for Clock synchronization process ALCSync which need an accurate clock with compensated drift
- *
- * @return uint32_t Current time in seconds
- */
-uint32_t smtc_modem_hal_get_compensated_time_in_s( void );
-
-/**
- * @brief Returns the time compensation in seconds
- *
- * @remark Used for Clock synchronization process ALCSync which need an accurate clock with compensated drift
- *
- * @return int32_t the positive or negative compensation offset in seconds
- */
-int32_t smtc_modem_hal_get_time_compensation_in_s( void );
-
-/**
  * @brief Returns the current time in milliseconds
  *
  *
@@ -186,24 +153,13 @@ int32_t smtc_modem_hal_get_time_compensation_in_s( void );
 uint32_t smtc_modem_hal_get_time_in_ms( void );
 
 /**
- * @brief Returns the current time in 0.1 milliseconds
+ * @brief set an offset into the rtc ounter
  *
- * @remark Used for class B ping slot openings.
- * Must be the same timer as the one used for \ref smtc_modem_hal_get_radio_irq_timestamp_in_100us.
+ * @remark Used for debug purpose such as wrapping issue.
  *
- * @return uint32_t Current time in 100µs (wraps every 4,9 days)
+ * @return
  */
-uint32_t smtc_modem_hal_get_time_in_100us( void );
-
-/**
- * @brief Returns the time, in 0.1 milliseconds, of the last radio interrupt request
- *
- *  @remark Used to obtain the timestamp of radio events (i.e.: end of TX).
- *  Must be the same timer as the one used for \ref smtc_modem_hal_get_time_in_100us.
- *
- * @return uint32_t
- */
-uint32_t smtc_modem_hal_get_radio_irq_timestamp_in_100us( void );
+void smtc_modem_hal_set_offset_to_test_wrapping( const uint32_t offset_to_test_wrapping );
 
 /* ------------ Timer management ------------*/
 
@@ -240,11 +196,13 @@ void smtc_modem_hal_enable_modem_irq( void );
  *
  * @remark This function is used to restore Modem data from a non volatile memory
  *
- * @param [in] ctx_type   Type of modem context that need to be restored
- * @param [out] buffer    Buffer pointer to write to
- * @param [in] size       Buffer size to read in bytes
+ * @param [in]  ctx_type   Type of modem context that need to be restored
+ * @param [in]  offset     Memory offset after ctx_type address
+ * @param [out] buffer     Buffer pointer to write to
+ * @param [in]  size       Buffer size to read in bytes
  */
-void smtc_modem_hal_context_restore( const modem_context_type_t ctx_type, uint8_t* buffer, const uint32_t size );
+void smtc_modem_hal_context_restore( const modem_context_type_t ctx_type, uint32_t offset, uint8_t* buffer,
+                                     const uint32_t size );
 
 /**
  * @brief Stores the data context
@@ -252,69 +210,39 @@ void smtc_modem_hal_context_restore( const modem_context_type_t ctx_type, uint8_
  * @remark This function is used to store Modem data in a non volatile memory
  *
  * @param [in] ctx_type   Type of modem context that need to be saved
+ * @param [in] offset     Memory offset after ctx_type address
  * @param [in] buffer     Buffer pointer to write from
  * @param [in] size       Buffer size to write in bytes
  */
-void smtc_modem_hal_context_store( const modem_context_type_t ctx_type, const uint8_t* buffer, const uint32_t size );
-
-/* ------------ Crashlog management ------------*/
-
-/**
- * @brief Stores the crashlog
- *
- * @remark This function is used to store the Modem crashlog in a non volatile memory
- *
- * @param [in] crashlog   Buffer of 32 bytes containing crashlog data to store
- */
-void smtc_modem_hal_store_crashlog( uint8_t crashlog[CRASH_LOG_SIZE] );
+void smtc_modem_hal_context_store( const modem_context_type_t ctx_type, uint32_t offset, const uint8_t* buffer,
+                                   const uint32_t size );
 
 /**
- * @brief Restores the crashlog
+ * @brief Erase a chosen number of flash pages of a context
+ * @remark This function is only used with CONTEXT_STORE_AND_FORWARD
  *
- * @remark This function is used to restore the Modem crashlog from a non volatile memory
- *
- * @param [out] crashlog   Buffer of 32 bytes containing crashlog data restored
+ * @param [in] ctx_type   Type of modem context that need to be erased
+ * @param [in] offset     Memory offset after ctx_type address
+ * @param [in] nb_page    Number of pages that
  */
-void smtc_modem_hal_restore_crashlog( uint8_t crashlog[CRASH_LOG_SIZE] );
+void smtc_modem_hal_context_flash_pages_erase( const modem_context_type_t ctx_type, uint32_t offset, uint8_t nb_page );
+
+/* ------------ Panic management ------------*/
 
 /**
- * @brief Stores the crashlog status
+ * @brief Action to be taken in case on modem panic
  *
- * @remark This function is used to store the Modem crashlog status in a non volatile memory. This status will
- * allow the Modem to handle crashlog send task if needed after a crash
+ * @remark In case Device Management is used, it is recommended to perform the crashlog storage and status update in
+ * this function
  *
- * @param [in] available  True if a crashlog is available, false otherwise
+ * @param [in] func The name of the function where the panic occurs
+ * @param [in] line The line number where the panic occurs
+ * @param [in] fmt  String Format
+ * @param ...  String Arguments
  */
-void smtc_modem_hal_set_crashlog_status( bool available );
-
-/**
- * @brief Get the previously stored crashlog status
- *
- * @remark This function is used to get the Modem crashlog status from a non volatile memory. This status will
- * allow the Modem to handle crashlog send task if needed after a crash
- *
- * @return bool True if a crashlog is available, false otherwise
- */
-bool smtc_modem_hal_get_crashlog_status( void );
-
-/* ------------ assert management ------------*/
-
-/**
- * @brief smtc_modem_hal_assert_fail return the source function and the source line number where the assert error has
- * occurred
- *
- * @param func
- * @param line
- */
-void smtc_modem_hal_assert_fail( uint8_t* func, uint32_t line );
+void smtc_modem_hal_on_panic( uint8_t* func, uint32_t line, const char* fmt, ... );
 
 /* ------------ Random management ------------*/
-/**
- * @brief Returns a 32bits random number
- *
- * @return uint32_t Generated random number
- */
-uint32_t smtc_modem_hal_get_random_nb( void );
 
 /**
  * @brief Returns an unsigned random number between min and max
@@ -325,16 +253,6 @@ uint32_t smtc_modem_hal_get_random_nb( void );
  * @return uint32_t Generated random unsigned number between smallest value and biggest value (between val_1 and val_2)
  */
 uint32_t smtc_modem_hal_get_random_nb_in_range( const uint32_t val_1, const uint32_t val_2 );
-
-/**
- * @brief Returns a signed random number between min and max
- *
- * @param [in] val_1 first range signed value
- * @param [in] val_2 second range signed value
- *
- * @return int32_t Generated random signed number between smallest value and biggest value (between val_1 and val_2)
- */
-int32_t smtc_modem_hal_get_signed_random_nb_in_range( const int32_t val_1, const int32_t val_2 );
 
 /* ------------ Radio env management ------------*/
 
@@ -375,6 +293,13 @@ void smtc_modem_hal_stop_radio_tcxo( void );
  */
 uint32_t smtc_modem_hal_get_radio_tcxo_startup_delay_ms( void );
 
+/**
+ * @brief Set antenna switch for Tx operation or not.
+ *
+ * @param [in] is_tx_on Indicates if the antenna switch must be set for Tx operation or not
+ */
+void smtc_modem_hal_set_ant_switch( bool is_tx_on );
+
 /* ------------ Environment management ------------*/
 
 /**
@@ -383,20 +308,6 @@ uint32_t smtc_modem_hal_get_radio_tcxo_startup_delay_ms( void );
  * @return uint8_t Battery level for lorawan stack
  */
 uint8_t smtc_modem_hal_get_battery_level( void );
-
-/**
- * @brief Return MCU temperature in celsius
- *
- * @return int8_t MCU temperature in celsius
- */
-int8_t smtc_modem_hal_get_temperature( void );
-
-/**
- * @brief Return mcu voltage (can be needed for dm uplink payload)
- *
- * @return uint8_t MCU voltage
- */
-uint8_t smtc_modem_hal_get_voltage( void );
 
 /**
  * @brief Return board wake up delay in ms
@@ -414,10 +325,131 @@ int8_t smtc_modem_hal_get_board_delay_ms( void );
  */
 void smtc_modem_hal_print_trace( const char* fmt, ... );
 
+/* ------------ Fuota management ------------*/
+
+/**
+ * @brief Only use if fmp package is activated
+ *
+ * @return uint32_t hw version as defined in fmp Alliance package TS006-1.0.0
+ */
+uint32_t smtc_modem_hal_get_hw_version_for_fuota( void );
+
+/**
+ * @brief Only use if fmp package is activated
+ *
+ * @return uint32_t fw version as defined in fmp Alliance package TS006-1.0.0
+ */
+uint32_t smtc_modem_hal_get_fw_version_for_fuota( void );
+
+/**
+ * @brief Only use if fmp package is activated
+ *
+ * @return uint8_t fw status field as defined in fmp Alliance package TS006-1.0.0
+ */
+uint8_t smtc_modem_hal_get_fw_status_available_for_fuota( void );
+
+/**
+ * @brief Only use if fmp package is activated
+ *
+ * @param [in] fw_to_delete_version    fw_to_delete_version as described in TS006-1.0.0
+ * @return uint8_t fw status field as defined in fmp Alliance package TS006-1.0.0
+ */
+uint8_t smtc_modem_hal_get_fw_delete_status_for_fuota( uint32_t fw_to_delete_version );
+
+/**
+ * @brief Only use if fmp package is activated
+ *
+ * @return uint32_t the fw version that will be running once this firmware upgrade image is installed (as defined in fmp
+ * Alliance package TS006-1.0.0)
+ */
+uint32_t smtc_modem_hal_get_next_fw_version_for_fuota( void );
+
+/* ------------ Needed for Device Management  ------------*/
+
+/**
+ * @brief Return temperature in celsius
+ *
+ * @return int8_t temperature in celsius
+ */
+int8_t smtc_modem_hal_get_temperature( void );
+
+/**
+ * @brief Return mcu voltage in mv
+ *
+ * @return uint8_t MCU voltage
+ */
+uint16_t smtc_modem_hal_get_voltage_mv( void );
+
+/**
+ * @brief Stores the crashlog
+ *
+ * @remark This function is used to store the Modem crashlog in a non volatile memory
+ *
+ * @param [in] crash_string        Crashlog string to be stored
+ * @param [in] crash_string_length Crashlog string length
+ */
+void smtc_modem_hal_crashlog_store( const uint8_t* crash_string, uint8_t crash_string_length );
+
+/**
+ * @brief Restores the crashlog
+ *
+ * @remark This function is used to restore the Modem crashlog from a non volatile memory
+ *
+ * @param [out] crash_string        Crashlog string to be restored
+ * @param [out] crash_string_length Crashlog string length
+ */
+void smtc_modem_hal_crashlog_restore( uint8_t* crash_string, uint8_t* crash_string_length );
+
+/**
+ * @brief Stores the crashlog status
+ *
+ * @remark This function is used to store the Modem crashlog status in a non volatile memory. This status will
+ * allow the Modem to handle crashlog send task if needed after a crash
+ *
+ * @param [in] available True if a crashlog is available, false otherwise
+ */
+void smtc_modem_hal_crashlog_set_status( bool available );
+
+/**
+ * @brief Get the previously stored crashlog status
+ *
+ * @remark This function is used to get the Modem crashlog status from a non volatile memory. This status will
+ * allow the Modem to handle crashlog send task if needed after a crash
+ *
+ * @return bool True if a crashlog is available, false otherwise
+ */
+bool smtc_modem_hal_crashlog_get_status( void );
+
+/* ------------ Needed for Store and Forward service  ------------*/
+
+/**
+ * @brief The number of reserved pages in flash for the Store and Forward service
+ * @remark the number must be at least 3 pages
+ *
+ * @return uint16_t
+ */
+uint16_t smtc_modem_hal_store_and_forward_get_number_of_pages( void );
+
+/**
+ * @brief Gives the size of a flash page in bytes
+ *
+ * @return uint16_t
+ */
+uint16_t smtc_modem_hal_flash_get_page_size( void );
+
+/* ------------ For Real Time OS compatibility  ------------*/
+
+/**
+ * @brief This function is called by the LBM stack on each LBM interruption (radio interrupt or low-power timer
+ * interrupt). It could be convenient in the case of an RTOS implementation to notify the thread that manages the LBM
+ * stack
+ */
+void smtc_modem_hal_user_lbm_irq( void );
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // __SMTC_MODEM_HAL_H__
+#endif  // SMTC_MODEM_HAL_H
 
 /* --- EOF ------------------------------------------------------------------ */

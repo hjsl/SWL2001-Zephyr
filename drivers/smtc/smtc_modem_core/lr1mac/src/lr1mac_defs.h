@@ -53,6 +53,8 @@ extern "C" {
  * --- PUBLIC CONSTANTS -------------------------------------------------------------
  */
 // clang-format off
+#define LORAWAN_NVM_CTX_VERSION         (0)
+
 #define LORAWAN_VERSION_MAJOR           (1)
 #define LORAWAN_VERSION_MINOR           (0)
 #define LORAWAN_VERSION_PATCH           (4)
@@ -99,7 +101,7 @@ extern "C" {
 
 #define SMTC_LR1MAC_DEVNONCE_SAVE_PERIOD ( 1 )
 
-#define LR1MAC_DEVICE_TIME_DELAY_TO_BE_NO_SYNC (4233600UL)  // 49 days -> 49×24×60×60
+#define LR1MAC_DEVICE_TIME_DELAY_TO_BE_NO_SYNC (86400UL)  // 1 days -> 1×24×60×60
 
 #define NWK_MAC_PAYLOAD_MAX_SIZE                                                                                   \
     ( LINK_CHECK_ANS_SIZE + ( LINK_ADR_REQ_SIZE * 8 ) + DUTY_CYCLE_REQ_SIZE + RXPARRAM_SETUP_REQ_SIZE +            \
@@ -124,9 +126,7 @@ extern "C" {
 // if there were no rx packet before the last LR1MAC_NO_RX_PACKET_RESET_THRESHOLD tx packets the lr1mac goes in panic
 #define LR1MAC_NO_RX_PACKET_RESET_THRESHOLD                (2400)
 
-// Frame direction definition for up/down link communications
-#define UP_LINK     0
-#define DOWN_LINK   1
+
 
 // #define MAX_FCNT_GAP 16384
 
@@ -142,12 +142,24 @@ extern "C" {
  * --- PUBLIC TYPES ----------------------------------------------------------------
  */
 
+// Frame direction definition for up/down link communications
+typedef enum direction_frame_e
+{
+    UP_LINK   = 0,
+    DOWN_LINK = 1
+} direction_frame_t;
+
 typedef enum lr1mac_states_e
 {
     LWPSTATE_IDLE,
     LWPSTATE_SEND,
     LWPSTATE_RX1,
     LWPSTATE_RX2,
+
+#if defined( RELAY_TX )
+    LWPSTATE_RXR,
+#endif
+
     LWPSTATE_TX_WAIT,
     LWPSTATE_INVALID,
     LWPSTATE_ERROR,
@@ -320,6 +332,9 @@ typedef enum rx_win_type_e
 {
     RX1 = 0,
     RX2,
+#if defined( RELAY_TX )
+    RXR,
+#endif
 } rx_win_type_t;
 
 /**
@@ -369,7 +384,7 @@ typedef enum modulation_type_e
 typedef enum rx_session_type_e
 {
     RX_SESSION_UNICAST,
-#if defined( SMTC_MULTICAST ) || defined( SMTC_D2D )
+#if defined( SMTC_MULTICAST )
     RX_SESSION_MULTICAST_G0,
     RX_SESSION_MULTICAST_G1,
     RX_SESSION_MULTICAST_G2,
@@ -417,18 +432,26 @@ typedef enum receive_win_s
     RECEIVE_ON_RXB_MC_GRP3 = 12,
 #endif
     RECEIVE_ON_RXBEACON = 13,
+
+#if defined( RELAY_TX )
+    RECEIVE_ON_RXR = 14,
+#endif
 } receive_win_t;
 
 typedef struct lr1mac_down_metadata_s
 {
-    uint32_t      timestamp;
+    uint32_t      timestamp_ms;
     int16_t       rx_snr;
     int16_t       rx_rssi;
     uint8_t       rx_fport;
+    bool          rx_fport_present;
     receive_win_t rx_window;
     bool          rx_fpending_bit;
     uint32_t      rx_frequency_hz;
     uint8_t       rx_datarate;
+    bool          rx_ack_bit;
+    bool          tx_ack_bit;
+    bool          is_a_join_accept;
 } lr1mac_down_metadata_t;
 
 typedef struct smtc_ping_slot_parameters_e
@@ -436,7 +459,6 @@ typedef struct smtc_ping_slot_parameters_e
     uint16_t ping_period;  // Period of the end-device receiver wake-up expressed in number of slots:
     uint8_t  ping_number;  // Number of ping slot in a beacon window
     uint32_t ping_offset_time;
-    uint32_t ping_offset_time_100us;
 } smtc_ping_slot_parameters_t;
 
 typedef struct lr1mac_rx_session_param_s
@@ -444,6 +466,8 @@ typedef struct lr1mac_rx_session_param_s
     bool                     enabled;
     uint32_t                 dev_addr;
     uint32_t                 fcnt_dwn;
+    uint32_t                 fcnt_dwn_min;
+    uint32_t                 fcnt_dwn_max;
     smtc_se_key_identifier_t nwk_skey;
     smtc_se_key_identifier_t app_skey;
     uint32_t                 rx_frequency;
@@ -461,26 +485,16 @@ typedef struct lr1mac_rx_session_param_s
 /*                    Mac Context and counter Context                           */
 /********************************************************************************/
 
-typedef struct mac_context_s
+typedef struct lr1_mac_nvm_context_s
 {
-    uint8_t  not_used_1[8];
-    uint8_t  not_used_2[8];
-    uint8_t  not_used_3[16];
-    uint32_t adr_custom;
-    uint8_t  region_type;
-    uint8_t  certification_enabled;
-    uint8_t  rfu[11];  // bytes reserved for future used
-    uint32_t crc;      // !! crc MUST be the last field of the structure !!
-} mac_context_t;
-
-typedef struct lr1_counter_context_s
-{
+    uint8_t  ctx_version;
     uint16_t devnonce;
-    uint32_t nb_reset;
     uint8_t  join_nonce[6];
-    uint32_t rfu[3];  // bytes reserved for future used
-    uint32_t crc;     // !! crc MUST be the last field of the structure !!
-} lr1_counter_context_t;
+    uint8_t  certification_enabled;
+    uint8_t  region;
+    uint8_t  rfu[17];  // bytes reserved for future used
+    uint32_t crc;      // !! crc MUST be the last field of the structure !!
+} lr1_mac_nvm_context_t;
 
 typedef enum cf_list_type
 {

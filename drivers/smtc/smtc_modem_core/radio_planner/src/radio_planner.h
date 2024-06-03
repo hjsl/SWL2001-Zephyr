@@ -48,7 +48,6 @@ extern "C" {
 
 #include "radio_planner_types.h"
 #include "radio_planner_stats.h"
-#include "radio_planner_hal.h"
 #include "radio_planner_hook_id_defs.h"
 
 #include "ralf.h"
@@ -77,24 +76,26 @@ typedef struct radio_planner_s
     rp_radio_params_t radio_params[RP_NB_HOOKS];
     rp_task_t         tasks[RP_NB_HOOKS];
     uint8_t*          payload[RP_NB_HOOKS];
-    uint16_t          payload_size[RP_NB_HOOKS];
+    uint16_t          rx_payload_size[RP_NB_HOOKS];
+    uint16_t          payload_buffer_size[RP_NB_HOOKS];
     uint8_t           rankings[RP_NB_HOOKS];
     void*             hooks[RP_NB_HOOKS];
     rp_status_t       status[RP_NB_HOOKS];
     ral_irq_t         raw_radio_irq[RP_NB_HOOKS];
     uint32_t          irq_timestamp_ms[RP_NB_HOOKS];
-    uint32_t          irq_timestamp_100us[RP_NB_HOOKS];
     rp_stats_t        stats;
     uint8_t           hook_to_execute;
     uint32_t          hook_to_execute_time_ms;
     uint8_t           radio_task_id;
-    uint8_t           timer_task_id;
-    uint8_t           semaphore_radio;
     uint32_t          timer_value;
     uint8_t           timer_hook_id;
+    bool              radio_irq_flag;
+    bool              timer_irq_flag;
+    uint32_t          disable_failsafe;
     void ( *hook_callbacks[RP_NB_HOOKS] )( void* );
     rp_next_state_status_t next_state_status;
     const ralf_t*          radio;
+    const ralf_t*          radio_target_attached_to_this_hook[RP_NB_HOOKS];
     uint32_t               margin_delay;
 } radio_planner_t;
 
@@ -108,6 +109,13 @@ typedef struct radio_planner_s
  */
 void rp_radio_irq_callback( void* obj );
 
+/**
+ * @brief rp_callback radio call by the upper layer to avoid code execution under it
+ *
+ * @param rp pointer to the radioplanner object itself
+ */
+
+void rp_callback( radio_planner_t* rp );
 /*!
  *
  */
@@ -130,18 +138,16 @@ rp_hook_status_t rp_release_hook( radio_planner_t* rp, uint8_t id );
 /*!
  * Enqueue a task to be handled by the radio planner
  *
- * \param [in/out] rp           Radio planner data structure
- * \param [in]     task         Radio planner task to be handled
- * \param [in]     payload      Pointer to the buffer holding the data to be
- *                                  Tx/Rx
- * \param [in]     payload_size Buffer size. Tx: Size to be transmitted,
- *                                  Rx: Maximum payload to be received
- * \param [in]     radio_params Holds the radio parameters to be used while
- *                                  handling the task.
+ * \param [in/out] rp               Radio planner data structure
+ * \param [in]     task             Radio planner task to be handled
+ * \param [in]     payload          Pointer to the buffer holding the data to be Tx/Rx
+ * \param [in]     payload_buffer_size Buffer size. Tx: Size to be transmitted,
+ *                                      Rx: Maximum payload to be received
+ * \param [in]     radio_params     Holds the radio parameters to be used while handling the task.
  * \retval status               Function execution status
  */
-rp_hook_status_t rp_task_enqueue( radio_planner_t* rp, const rp_task_t* task, uint8_t* payload, uint16_t payload_size,
-                                  const rp_radio_params_t* radio_params );
+rp_hook_status_t rp_task_enqueue( radio_planner_t* rp, const rp_task_t* task, uint8_t* payload,
+                                  uint16_t payload_buffer_size, const rp_radio_params_t* radio_params );
 
 /*!
  *
@@ -161,6 +167,23 @@ void rp_get_status( const radio_planner_t* rp, const uint8_t id, uint32_t* irq_t
  *
  */
 void rp_get_and_clear_raw_radio_irq( radio_planner_t* rp, const uint8_t id, ral_irq_t* raw_radio_irq );
+/*!
+ *
+ */
+bool rp_get_irq_flag( void* obj );
+/*!
+ *
+ */
+rp_hook_status_t rp_attach_new_radio( radio_planner_t* rp, const ralf_t* radio, const uint8_t hook_id );
+
+/**
+ * @brief Disable failsafe check on radio planner tasks
+ *
+ * @param [in] rp Radio planner object
+ * @param [in] disable true to disable failsafe check, flase otherwize
+ */
+void rp_disable_failsafe( radio_planner_t* rp, bool disable );
+
 #ifdef __cplusplus
 }
 #endif

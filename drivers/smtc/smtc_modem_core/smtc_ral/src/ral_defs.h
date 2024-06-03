@@ -32,8 +32,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RAL_DEFS_H__
-#define RAL_DEFS_H__
+#ifndef RAL_DEFS_H
+#define RAL_DEFS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,6 +90,13 @@ typedef enum ral_fallback_modes_e
     RAL_FALLBACK_STDBY_XOSC,
     RAL_FALLBACK_FS,
 } ral_fallback_modes_t;
+
+typedef enum ral_xosc_cfg_e
+{
+    RAL_XOSC_CFG_XTAL,
+    RAL_XOSC_CFG_TCXO_RADIO_CTRL,
+    RAL_XOSC_CFG_TCXO_EXT_CTRL,
+} ral_xosc_cfg_t;
 
 /**
  * API return status
@@ -227,8 +234,9 @@ typedef enum ral_gfsk_address_filtering_e
  */
 typedef enum ral_gfsk_dc_free_e
 {
-    RAL_GFSK_DC_FREE_OFF,        //!< GFSK data whitening deactivated
-    RAL_GFSK_DC_FREE_WHITENING,  //!< GFSK data whitening enabled
+    RAL_GFSK_DC_FREE_OFF,                    //!< GFSK data whitening deactivated
+    RAL_GFSK_DC_FREE_WHITENING,              //!< GFSK data whitening enabled
+    RAL_GFSK_DC_FREE_WHITENING_SX128X_COMP,  //!< GFSK data whitening enabled - SX128x compatibility
 } ral_gfsk_dc_free_t;
 
 enum ral_rx_status_gfsk_e
@@ -255,8 +263,9 @@ enum ral_rx_status_gfsk_e
  */
 typedef enum ral_gfsk_pkt_len_modes_s
 {
-    RAL_GFSK_PKT_FIX_LEN,  //!< Payload length is not sent/read over the air
-    RAL_GFSK_PKT_VAR_LEN,  //!< Payload length is sent/read over the air
+    RAL_GFSK_PKT_FIX_LEN,              //!< Payload length is not sent/read over the air
+    RAL_GFSK_PKT_VAR_LEN,              //!< Payload length is sent/read over the air
+    RAL_GFSK_PKT_VAR_LEN_SX128X_COMP,  //!< Payload length is sent/read over the air - SX128x compatibility
 } ral_gfsk_pkt_len_modes_t;
 
 typedef uint16_t ral_rx_status_gfsk_t;
@@ -323,7 +332,7 @@ typedef struct ral_gfsk_pkt_params_s
     uint8_t                      sync_word_len_in_bits;  //!< GFSK Sync word length in bits
     ral_gfsk_address_filtering_t address_filtering;      //!< GFSK Address filtering configuration
     ral_gfsk_pkt_len_modes_t     header_type;            //!< GFSK Header type
-    uint8_t                      pld_len_in_bytes;       //!< GFSK Payload length in bytes
+    uint16_t                     pld_len_in_bytes;       //!< GFSK Payload length in bytes
     ral_gfsk_crc_type_t          crc_type;               //!< GFSK CRC type configuration
     ral_gfsk_dc_free_t           dc_free;                //!< GFSK Whitening configuration
 } ral_gfsk_pkt_params_t;
@@ -499,6 +508,6 @@ static inline uint8_t ral_compute_lora_ldro( const ral_lora_sf_t sf, const ral_l
 }
 #endif
 
-#endif  // RAL_DEFS_H__
+#endif  // RAL_DEFS_H
 
 /* --- EOF ------------------------------------------------------------------ */

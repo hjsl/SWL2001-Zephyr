@@ -28,7 +28,7 @@ static void on_modem_network_joined(void);
 static void on_modem_alarm(void);
 static void on_modem_tx_done(smtc_modem_event_txdone_status_t status);
 static void on_modem_down_data(int8_t rssi, int8_t snr,
-			       smtc_modem_event_downdata_window_t rx_window, uint8_t port,
+			       smtc_modem_dl_window_t rx_window, uint8_t port,
 			       const uint8_t *payload, uint8_t size);
 static void send_frame(const uint8_t *buffer, const uint8_t length, const bool confirmed);
 
@@ -47,7 +47,7 @@ static void send_frame(const uint8_t *buffer, const uint8_t length, const bool c
 /**
  * @brief Should uplinks be confirmed
  */
-#define LORAWAN_CONFIRMED_MSG_ON false
+#define LORAWAN_CONFIRMED_MSG_ON true
 
 /* ---------------- LoRaWAN Configurations ---------------- */
 
@@ -56,10 +56,11 @@ static void send_frame(const uint8_t *buffer, const uint8_t length, const bool c
 
 /*LoRaWAN configuration */
 static struct smtc_app_lorawan_cfg lorawan_cfg = {
-	.use_chip_eui_as_dev_eui = true,
-	.join_eui = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-	.app_key = {0x15, 0x1B, 0x76, 0x0D, 0xED, 0x74, 0x87, 0xE7, 0x8A, 0xCA, 0xE8, 0xC8, 0x74,
-		    0x16, 0x31, 0x19},
+	.use_chip_eui_as_dev_eui = false,
+	.dev_eui = {0xb5, 0x09, 0xb4, 0x53, 0xfa, 0x12, 0x58, 0x79},
+	.join_eui = {0xe0, 0x96, 0xb0, 0x1d, 0xa5, 0xbf, 0x49, 0x4a},
+	.app_key =  {0xda, 0x87, 0xec, 0x9c, 0x3e, 0xf7, 0x43, 0x52, 0x49, 0x2d, 0x67, 0x08,
+  0x2f, 0x2e, 0xa2, 0xe6},
 	.class = SMTC_MODEM_CLASS_A,
 	.region = SMTC_MODEM_REGION_EU_868,
 };
@@ -73,8 +74,8 @@ static struct smtc_app_event_callbacks event_callbacks = {
 
 };
 
-/* lr11xx radio context and its use in the ralf layer */
-const ralf_t modem_radio = RALF_LR11XX_INSTANTIATE(DEVICE_DT_GET(DT_NODELABEL(lr11xx)));
+/* LR11XX radio driver. */
+static const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(lr11xx));
 
 /* Buffer for uplinks */
 static uint8_t app_data_buffer[256];
@@ -83,7 +84,7 @@ static uint8_t app_data_buffer[256];
 
 K_SEM_DEFINE(main_sleep_sem, 0, 1);
 
-void main(void)
+int main(void)
 {
 	/* configure LoRaWAN modem */
 
@@ -91,7 +92,7 @@ void main(void)
 	 * Please note that the reset callback will be called immediately after the first call to
 	 * smtc_modem_run_engine because of reset detection.
 	 */
-	smtc_app_init(&modem_radio, &event_callbacks, NULL);
+	smtc_app_init(dev, &event_callbacks, NULL);
 	smtc_app_display_versions();
 
 	/* Enter main loop:
@@ -106,6 +107,8 @@ void main(void)
 		LOG_INF("Sleeping for %d ms", sleep_time_ms);
 		k_sleep(K_MSEC(sleep_time_ms));
 	}
+
+	return 0;
 }
 
 /**
@@ -191,14 +194,14 @@ static void on_modem_tx_done(smtc_modem_event_txdone_status_t status)
  * @param [in] size       Received buffer size
  */
 static void on_modem_down_data(int8_t rssi, int8_t snr,
-			       smtc_modem_event_downdata_window_t rx_window, uint8_t port,
+			       smtc_modem_dl_window_t rx_window, uint8_t port,
 			       const uint8_t *payload, uint8_t size)
 {
 	LOG_INF("EVENT: DOWNDATA");
 
 	LOG_INF("RSSI: %d", rssi);
 	LOG_INF("SNR: %d", snr);
-	LOG_INF("RX window: %s (%d)", smtc_modem_event_downdata_window_to_str(rx_window),
+	LOG_INF("RX window: %s (%d)", smtc_modem_dl_window_to_str(rx_window),
 		rx_window);
 	LOG_INF("PORT: %d", port);
 	LOG_INF("Payload len: %d", size);
@@ -223,7 +226,7 @@ static void send_frame(const uint8_t *buffer, const uint8_t length, bool tx_conf
 	int32_t duty_cycle;
 
 	/* Check if duty cycle is available */
-	smtc_modem_get_duty_cycle_status(&duty_cycle);
+	smtc_modem_get_duty_cycle_status(STACK_ID, &duty_cycle);
 	if (duty_cycle < 0) {
 		LOG_WRN("Duty-cycle limitation - next possible uplink in %d ms", duty_cycle);
 		/* NOTE: an actual application will probably schedule a new attempt for an uplink

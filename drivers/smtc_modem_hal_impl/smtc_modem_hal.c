@@ -13,7 +13,7 @@
 #include <smtc_modem_hal_init.h>
 
 #include <zephyr/kernel.h>
-#include <zephyr/random/rand32.h>
+#include <zephyr/random/random.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/reboot.h>
@@ -21,6 +21,8 @@
 #include <lr11xx_board.h>
 #include <lr11xx_radio.h>
 #include <lr11xx_system.h>
+
+#include <stdio.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(smtc_modem_hal);
@@ -102,63 +104,10 @@ uint32_t smtc_modem_hal_get_time_in_s(void)
 	return (uint32_t)(time_ms / 1000);
 }
 
-int32_t smtc_modem_hal_get_time_compensation_in_s(void)
-{
-	/* There is no compensation going on */
-	return 0;
-}
-
-/* There is no difference in zephyr between "uncompensated" and "compensated" time,
- * so we just use the same implementation.
- * Semtech does something similar in their HAl for stm
- */
-uint32_t smtc_modem_hal_get_compensated_time_in_s(void)
-{
-	return smtc_modem_hal_get_time_in_s() + smtc_modem_hal_get_time_compensation_in_s();
-}
-
 uint32_t smtc_modem_hal_get_time_in_ms(void)
 {
 	/* The wrapping every 49 days is expected by the modem lib */
 	return k_uptime_get_32();
-}
-
-uint32_t smtc_modem_hal_get_time_in_100us(void)
-{
-	int64_t current_ticks = k_uptime_ticks();
-
-	/*
-	 * ticks_per_100us = ticks_per_second / 10000.
-	 *
-	 * time_in_100us = current_ticks / ticks_per_100us
-	 *
-	 * Since we do not want to lose precision by dividing
-	 * in the ticks_per_100us calculation, we move the division up
-	 * in the double fraction to make it a multiplication.
-	 *
-	 *    cur_ticks        ticks_per_s * 10000
-	 *   -----------  =  ----------------------
-	 *   ticks_per_s           cur_ticks
-	 *   -----------
-	 *      10000
-	 *
-	 * The wrapping every 4.9 days is expected by the modem lib
-	 */
-	return (current_ticks * 10000) / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-}
-
-/* Semtech's HAL for STM uses the same implementation for mtc_modem_hal_get_time_in_100us
- * and smtc_modem_hal_get_radio_irq_timestamp_in_100us.
- *
- * This does not make sense from just reading the doscstring in smtc_modem_hal.h or the porting
- * guide, where we would assume smtc_modem_hal_get_radio_irq_timestamp_in_100us should return a time
- * difference from some "event".
- *
- * This should be checked with Semtech
- */
-uint32_t smtc_modem_hal_get_radio_irq_timestamp_in_100us(void)
-{
-	return smtc_modem_hal_get_time_in_100us();
 }
 
 /* ------------ Timer management ------------*/
@@ -315,10 +264,11 @@ void prv_settings_init(void)
  * @brief Stores the data in buffer to settings.
  *
  * @param[in] path The settings path to store the data to.
+ * @param[in] offset The 
  * @param[in] buffer The data to store.
  * @param[in] size The size of the data, in bytes.
  */
-static void prv_store(char *path, const uint8_t *buffer, const uint32_t size)
+static void prv_store(char *path, uint32_t offset, const uint8_t *buffer, const uint32_t size)
 {
 	prv_settings_init();
 
@@ -332,7 +282,7 @@ static void prv_store(char *path, const uint8_t *buffer, const uint32_t size)
  * @param[in] buffer The buffer to read into.
  * @param[in] size The number of bytes to read.
  */
-static void prv_load(char *path, uint8_t *buffer, const uint32_t size)
+static void prv_load(char *path, uint32_t offset, uint8_t *buffer, const uint32_t size)
 {
 	prv_settings_init();
 
@@ -341,55 +291,76 @@ static void prv_load(char *path, uint8_t *buffer, const uint32_t size)
 	settings_load_subtree(path);
 }
 
-void smtc_modem_hal_context_restore(const modem_context_type_t ctx_type, uint8_t *buffer,
+void smtc_modem_hal_context_restore(const modem_context_type_t ctx_type, uint32_t offset, uint8_t *buffer,
 				    const uint32_t size)
 {
 	char path[30];
-	snprintk(path, sizeof(path), "smtc_modem_hal/context/%d", ctx_type);
-	prv_load(path, buffer, size);
+	snprintk(path, sizeof(path), "smtc_modem_hal/context/%d/%d", ctx_type, offset);
+	prv_load(path, offset, buffer, size);
 }
 
-void smtc_modem_hal_context_store(const modem_context_type_t ctx_type, const uint8_t *buffer,
+void smtc_modem_hal_context_store(const modem_context_type_t ctx_type, uint32_t offset, const uint8_t *buffer,
 				  const uint32_t size)
 {
 	char path[30];
-	snprintk(path, sizeof(path), "smtc_modem_hal/context/%d", ctx_type);
-	prv_store(path, buffer, size);
+	snprintk(path, sizeof(path), "smtc_modem_hal/context/%d/%d", ctx_type, offset);
+	prv_store(path, offset, buffer, size);
 }
 
-void smtc_modem_hal_store_crashlog(uint8_t crashlog[CRASH_LOG_SIZE])
+void smtc_modem_hal_crashlog_store(const uint8_t *crash_string, uint8_t crash_string_length)
 {
-	prv_store("smtc_modem_hal/crashlog", crashlog, CRASH_LOG_SIZE);
+	prv_store("smtc_modem_hal/crashlog", 0, crash_string, crash_string_length);
 }
 
-void smtc_modem_hal_restore_crashlog(uint8_t crashlog[CRASH_LOG_SIZE])
+void smtc_modem_hal_crashlog_restore(uint8_t *crash_string, uint8_t *crash_string_length)
 {
-	prv_load("smtc_modem_hal/crashlog", crashlog, CRASH_LOG_SIZE);
+	*crash_string_length = CRASH_LOG_SIZE;
+	prv_load("smtc_modem_hal/crashlog", 0, crash_string, *crash_string_length);
 }
 
-void smtc_modem_hal_set_crashlog_status(bool available)
+void smtc_modem_hal_crashlog_set_status(bool available)
 {
-	prv_store("smtc_modem_hal/crashlog_status", (uint8_t *)&available, sizeof(available));
+	prv_store("smtc_modem_hal/crashlog_status", 0, (uint8_t *)&available, sizeof(available));
 }
 
-bool smtc_modem_hal_get_crashlog_status(void)
+bool smtc_modem_hal_crashlog_get_status(void)
 {
 	bool available;
-	prv_load("smtc_modem_hal/crashlog_status", (uint8_t *)&available, sizeof(available));
+	prv_load("smtc_modem_hal/crashlog_status", 0, (uint8_t *)&available, sizeof(available));
 	return available;
 }
 
 #endif /* CONFIG_LORA_BASICS_MODEM_USER_STORAGE_IMPL */
 
-/* ------------ assert management ------------*/
+/* ------------ Panic management ------------*/
 
-void smtc_modem_hal_assert_fail(uint8_t *func, uint32_t line)
+/**
+ * @brief Action to be taken in case on modem panic
+ *
+ * @remark In case Device Management is used, it is recommended to perform the crashlog storage and status update in
+ * this function
+ *
+ * @param [in] func The name of the function where the panic occurs
+ * @param [in] line The line number where the panic occurs
+ * @param [in] fmt  String Format
+ * @param ...  String Arguments
+ */
+void smtc_modem_hal_on_panic( uint8_t* func, uint32_t line, const char* fmt, ... )
 {
-
 	/* NOTE: uint8_t *func parameter is actually __func__ casted to uint8_t*,
 	 * so it can be safely printed with %s */
-	smtc_modem_hal_store_crashlog((uint8_t *)func);
-	smtc_modem_hal_set_crashlog_status(true);
+
+    uint8_t out_buff[255] = { 0 };
+    uint8_t out_len       = snprintf( ( char* ) out_buff, sizeof( out_buff ), "%s:%u ", func, line );
+
+	va_list args;
+	va_start(args, fmt);
+	out_len += vsprintf( ( char* ) &out_buff[out_len], fmt, args );
+    va_end( args );
+
+	smtc_modem_hal_crashlog_store(out_buff, out_len);
+	smtc_modem_hal_crashlog_set_status(true);
+	
 	LOG_ERR("Assert triggered. Crash log: %s:%u", func, line);
 
 	/* calling assert here will halt execution if asserts are enabled and we are debugging.
@@ -446,7 +417,7 @@ void prv_lr11xx_event_cb(const struct device *dev)
 	 * In simple (init, join, uplink) tests smtc_modem_hal_radio_irq_clear_pending is
 	 * never called. This means that prv_skip_next_radio_irq is never true and no callbacks are
 	 * ever skipped.
-	 * This is why the LOG bellow is a warning. If it gets printed and you are encountering
+	 * This is why the LOG below is a warning. If it gets printed and you are encountering
 	 * issues, this might be the culprit. */
 	if (prv_skip_next_radio_irq) {
 		LOG_WRN("Skipping radio irq");
@@ -504,6 +475,11 @@ uint32_t smtc_modem_hal_get_radio_tcxo_startup_delay_ms(void)
 	const struct lr11xx_hal_context_tcxo_cfg_t tcxo_cfg = config->tcxo_cfg;
 
 	return tcxo_cfg.timeout_ms;
+}
+
+void smtc_modem_hal_set_ant_switch( bool is_tx_on )
+{
+	/* Do nothing by default. */
 }
 
 /* ------------ Environment management ------------*/
@@ -572,6 +548,12 @@ int8_t smtc_modem_hal_get_board_delay_ms(void)
 	/* the wakeup time is probably closer to 0ms then 1ms,
 	 * but just to be safe: */
 	return 1;
+}
+
+void smtc_modem_hal_user_lbm_irq( void )
+{
+    // Do nothing in case implementation is bare metal
+	printk("irq!\n");
 }
 
 /*

@@ -42,7 +42,6 @@
 #include "stdint.h"
 #include "lr1mac_defs.h"
 #include "lr1_stack_mac_layer.h"
-#include "smtc_duty_cycle.h"
 
 /*
  *-----------------------------------------------------------------------------------
@@ -54,18 +53,14 @@
  *
  * @param lr1_mac_obj             // lr1mac object
  * @param real                    // Regional Abstraction Layer object
- * @param lbt_obj                 // Listen Before Talk object
- * @param dtc_obj                 // Duty cycle object
  * @param rp                      // Radio Planner object
  * @param otaa_abp_conf           // Activation mode, only OTAA is supported
- * @param smtc_real_region_types  // Contains the regions type (EU868, US915, ...)
  * @param push_callback           // Callback to push received downlink
- * @param push_context            // Context concerning the downlink
+ * @param push_context            // Context concerning the downlink data
  */
-void lr1mac_core_init( lr1_stack_mac_t* lr1_mac_obj, smtc_real_t* real, smtc_lbt_t* lbt_obj, smtc_dtc_t* dtc_obj,
-                       radio_planner_t* rp, lr1mac_activation_mode_t otaa_abp_conf,
-                       smtc_real_region_types_t smtc_real_region_types, void ( *push_callback )( void* push_context ),
-                       void*                    push_context );
+void lr1mac_core_init( lr1_stack_mac_t* lr1_mac_obj, smtc_real_t* real,
+                        radio_planner_t* rp, lr1mac_activation_mode_t otaa_abp_conf,
+                       void ( *push_callback )( lr1_stack_mac_down_data_t* push_context ), void* stack_id );
 
 /**
  * \brief Sends an uplink
@@ -122,16 +117,6 @@ status_lorawan_t lr1mac_core_dr_strategy_set( lr1_stack_mac_t* lr1_mac_obj, dr_s
 dr_strategy_t lr1mac_core_dr_strategy_get( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
- * @brief Set the custom datarate distribution
- * @remark each nibble represent a datarate:
- *            => 0x0000008F DR0 will be used twice more than DR1, other DRs will not be used
- *
- * @param lr1_mac_obj
- * @param datarate_custom
- */
-void lr1mac_core_dr_custom_set( lr1_stack_mac_t* lr1_mac_obj, uint32_t* datarate_custom );
-
-/**
  * @brief Runs the MAC layer state machine.
  * @remark Must be called periodically by the application. Not timing critical. Can be interrupted.
  *
@@ -156,27 +141,11 @@ status_lorawan_t lr1mac_core_context_load( lr1_stack_mac_t* lr1_mac_obj );
 void lr1mac_core_context_save( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
- * @brief Get the snr of the last user receive packet
- *
- * @param lr1_mac_obj
- * @return int16_t
- */
-int16_t lr1mac_core_last_snr_get( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
- * @brief Get the RSSI of the last user receive packet
- *
- * @param lr1_mac_obj
- * @return int16_t
- */
-int16_t lr1mac_core_last_rssi_get( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
  * @brief Reload the factory Config in the LoraWAN Stack
  *
  * @param lr1_mac_obj
  */
-void lr1mac_core_factory_reset( lr1_stack_mac_t* lr1_mac_obj );  // load factory MAC context from constructor
+void lr1mac_core_context_factory_reset( lr1_stack_mac_t* lr1_mac_obj );  // load factory MAC context from constructor
 
 /**
  * @brief Set device activation mode
@@ -214,6 +183,16 @@ uint32_t lr1mac_core_next_max_payload_length_get( lr1_stack_mac_t* lr1_mac_obj )
 uint32_t lr1mac_core_devaddr_get( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
+ * @brief Set the dev_addr
+ * @remark only in ABP mode
+ *
+ * @param lr1_mac_obj
+ * @param dev_addr
+ * @return status_lorawan_t
+ */
+status_lorawan_t lr1mac_core_devaddr_set( lr1_stack_mac_t* lr1_mac_obj, uint32_t dev_addr );
+
+/**
  * @brief Return the next transmission power
  *
  * @param lr1_mac_obj
@@ -246,14 +225,6 @@ uint32_t lr1mac_core_next_frequency_get( lr1_stack_mac_t* lr1_mac_obj );
  * @return lr1mac_states_t
  */
 lr1mac_states_t lr1mac_core_state_get( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
- * @brief Get number of stack reset
- *
- * @param lr1_mac_obj
- * @return uint16_t
- */
-uint16_t lr1mac_core_nb_reset_get( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
  * @brief Get the current devnonce used to join
@@ -291,7 +262,7 @@ join_status_t lr1_mac_joined_status_get( lr1_stack_mac_t* lr1_mac_obj );
  * @return status_lorawan_t
  */
 status_lorawan_t lr1mac_core_payload_send( lr1_stack_mac_t* lr1_mac_obj, uint8_t fPort, bool fport_enabled,
-                                           const uint8_t* dataIn, uint8_t sizeIn, uint8_t PacketType,
+                                           const uint8_t* dataIn, uint8_t sizeIn, lr1mac_layer_param_t PacketType,
                                            uint32_t target_time_ms );
 
 /**
@@ -307,7 +278,7 @@ status_lorawan_t lr1mac_core_payload_send( lr1_stack_mac_t* lr1_mac_obj, uint8_t
  * @return status_lorawan_t
  */
 status_lorawan_t lr1mac_core_payload_send_at_time( lr1_stack_mac_t* lr1_mac_obj, uint8_t fport, bool fport_enabled,
-                                                   const uint8_t* data_in, uint8_t size_in, uint8_t packet_type,
+                                                   const uint8_t* data_in, uint8_t size_in, lr1mac_layer_param_t packet_type,
                                                    uint32_t target_time_ms );
 
 /**
@@ -316,18 +287,13 @@ status_lorawan_t lr1mac_core_payload_send_at_time( lr1_stack_mac_t* lr1_mac_obj,
  * @remark Only LINK_CHECK_REQ, DEVICE_TIME_REQ and PING_SLOT_INFO_REQ can be requested
  *
  * @param lr1_mac_obj
- * @param cid_req
+ * @param cid_req_list         List of LoRaWAN Commands ID
+ * @param cid_req_list_size    Number of Commands ID in list
+ * @param target_time_ms  RTC time to send the packet
  * @return status_lorawan_t
  */
-status_lorawan_t lr1mac_core_send_stack_cid_req( lr1_stack_mac_t* lr1_mac_obj, cid_from_device_t cid_req );
-
-/**
- * @brief Return the Radio planner object
- *
- * @param lr1_mac_obj
- * @return radio_planner_t*
- */
-radio_planner_t* lr1mac_core_rp_get( lr1_stack_mac_t* lr1_mac_obj );
+status_lorawan_t lr1mac_core_send_stack_cid_req( lr1_stack_mac_t* lr1_mac_obj, uint8_t* cid_req_list,
+                                                 uint8_t cid_req_list_size, uint32_t target_time_ms );
 
 /**
  * @brief Get the Tx power set in stack
@@ -346,14 +312,6 @@ int8_t lr1mac_core_tx_power_offset_get( lr1_stack_mac_t* lr1_mac_obj );
 void lr1mac_core_tx_power_offset_set( lr1_stack_mac_t* lr1_mac_obj, int8_t power_off );
 
 /**
- * @brief Get the Rx window type that received the last Class A downlink
- *
- * @param lr1_mac_obj
- * @return receive_win_t
- */
-receive_win_t lr1mac_core_rx_window_get( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
  * @brief Get the current uplink frame counter
  *
  * @param lr1_mac_obj
@@ -369,31 +327,15 @@ uint32_t lr1mac_core_fcnt_up_get( lr1_stack_mac_t* lr1_mac_obj );
  */
 uint32_t lr1mac_core_next_join_time_second_get( lr1_stack_mac_t* lr1_mac_obj );
 
-/**
- * @brief Get the next free time for the duty cycle
- *
- * @remark  if > 0: the next slot availble, else the available time
- *
- * @param lr1_mac_obj
- * @return int32_t
- */
-int32_t lr1mac_core_next_free_duty_cycle_ms_get( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
- * @brief Get the Rx network ACK bit status
- *
- * @param lr1_mac_obj
- * @return uint8_t
- */
-uint8_t lr1mac_core_rx_ack_bit_get( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
- * @brief Get the last frame pending bit status
- *
- * @param lr1_mac_obj
- * @return uint8_t
- */
-uint8_t lr1mac_core_rx_fpending_bit_get( lr1_stack_mac_t* lr1_mac_obj );
+// /**
+//  * @brief Get the next free time for the duty cycle
+//  *
+//  * @remark  if > 0: the next slot available, else the available time
+//  *
+//  * @param lr1_mac_obj
+//  * @return int32_t
+//  */
+// int32_t lr1mac_core_next_free_duty_cycle_ms_get( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
  * @brief Get the current region (EU868, US915, ...)
@@ -473,6 +415,15 @@ void lr1mac_core_reset_no_rx_packet_in_mobile_mode_cnt( lr1_stack_mac_t* lr1_mac
 uint16_t lr1mac_core_get_current_no_rx_packet_cnt( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
+ * @brief Get the current value of internal duration in second since "tx without rx"
+ *
+ * @remark This value is reset when a downlink happened
+ *
+ * @return uint32_t
+ */
+uint32_t lr1mac_core_get_current_no_rx_packet_cnt_since_s( lr1_stack_mac_t* lr1_mac_obj );
+
+/**
  * @brief stack receive a link adr request
  *
  * @remark reset the flag automatically each time the upper layer call this function
@@ -482,6 +433,23 @@ uint16_t lr1mac_core_get_current_no_rx_packet_cnt( lr1_stack_mac_t* lr1_mac_obj 
  * @return false
  */
 bool lr1mac_core_available_link_adr_get( lr1_stack_mac_t* lr1_mac_obj );
+
+/**
+ * @brief Get status of bypass join duty cycle backoff
+ *
+ * @param lr1_mac_obj
+ * @return true bypass enabled
+ * @return false bypass not enabled
+ */
+bool lr1mac_core_join_duty_cycle_backoff_bypass_get( lr1_stack_mac_t* lr1_mac_obj );
+
+/**
+ * @brief Bypass join duty cycle backoff
+ *
+ * @param lr1_mac_obj
+ * @param enable        true: bypass duty-cycle spec
+ */
+void lr1mac_core_join_duty_cycle_backoff_bypass_set( lr1_stack_mac_t* lr1_mac_obj, bool enable );
 
 /**
  * @brief Set the certification mode
@@ -546,16 +514,6 @@ uint32_t lr1mac_core_get_timestamp_last_device_time_ans_s( lr1_stack_mac_t* lr1_
  * @return uint32_t
  */
 uint32_t lr1mac_core_get_time_left_connection_lost( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
- * @brief Set the callback called when a network DeviceTimeAns is received
- *
- * @param lr1_mac_obj
- * @param device_time_callback
- */
-void lr1mac_core_set_device_time_callback( lr1_stack_mac_t* lr1_mac_obj,
-                                           void ( *device_time_callback )( void* context, uint32_t rx_timestamp_s ),
-                                           void* context, uint32_t rx_timestamp_s );
 
 /**
  * @brief Set delay in seconds to concider time no more valid if no time sync received
@@ -626,23 +584,6 @@ status_lorawan_t lr1_mac_core_get_device_time_req_status( lr1_stack_mac_t* lr1_m
 status_lorawan_t lr1_mac_core_get_ping_slot_info_req_status( lr1_stack_mac_t* lr1_mac_obj );
 
 /**
- * @brief Get status of push network downlink (mac commands, beacon, ..) to the user
- *
- * @param lr1_mac_obj
- * @return true
- * @return false
- */
-bool lr1mac_core_get_status_push_network_downlink_to_user( lr1_stack_mac_t* lr1_mac_obj );
-
-/**
- * @brief Set status of push network downlink (mac commands, beacon, ..) to the user
- *
- * @param lr1_mac_obj
- * @param enabled
- */
-void lr1mac_core_set_status_push_network_downlink_to_user( lr1_stack_mac_t* lr1_mac_obj, bool enabled );
-
-/**
  * @brief Set the ADR ACK limit and ADR ACK delay regarding the ADR fallback in case no downlink are received
  *
  * @param lr1_mac_obj
@@ -664,4 +605,67 @@ status_lorawan_t lr1mac_core_set_adr_ack_limit_delay( lr1_stack_mac_t* lr1_mac_o
 void lr1mac_core_get_adr_ack_limit_delay( lr1_stack_mac_t* lr1_mac_obj, uint8_t* adr_ack_limit,
                                           uint8_t* adr_ack_delay );
 
+/**
+ * @brief Disable Rx windows
+ *
+ * @param lr1_mac_obj
+ * @param disable_rx_windows True to disable Rx windows after a Tx
+ */
+void lr1mac_core_set_no_rx_windows( lr1_stack_mac_t* lr1_mac_obj, uint8_t disable_rx_windows );
+
+/**
+ * @brief Get the status of disable Rx windows
+ *
+ * @param lr1_mac_obj
+ * @return uint8_t
+ */
+uint8_t lr1mac_core_get_no_rx_windows( lr1_stack_mac_t* lr1_mac_obj );
+
+/**
+ * @brief Prepare next join , update next channel 
+ *
+ * @param lr1_mac_obj
+ * @return status_lorawan_t
+ */
+status_lorawan_t lr1mac_core_update_join_channel( lr1_stack_mac_t* lr1_mac_obj );
+
+/**
+ * @brief Prepare next transmission , update next channel 
+ *
+ * @param lr1_mac_obj
+ * @return status_lorawan_t
+ */
+status_lorawan_t lr1mac_core_update_next_tx_channel( lr1_stack_mac_t* lr1_mac_obj );
+
+
+/**
+ * @brief In case of transmission initiated by the stack itself (nwk ans or retransmission) , this function return the
+ * schedule time of this next transmission
+ *
+ * @param [in] lr1_mac_obj 
+ * @return uint32_t return target time of next transmission in ms
+ */
+uint32_t lr1mac_core_get_time_of_nwk_ans( lr1_stack_mac_t* lr1_mac_obj );
+/**
+ * @brief In case of transmission initiated by the stack itself (nwk ans or retransmission) , update the
+ * schedule time of this next transmission
+ *
+ * @param [in] lr1_mac_obj 
+ * @param [in] uint32_t  target time of next transmission in ms
+ */
+void lr1mac_core_set_time_of_nwk_ans( lr1_stack_mac_t* lr1_mac_obj, uint32_t target_time );
+/**
+ * @brief update the next transmission to start at time or asap;
+ *
+ *  @param [in] lr1_mac_obj 
+ * @param [in] bool  is_send_at_time :  true to transmit at time
+ */
+void lr1mac_core_set_next_tx_at_time(  lr1_stack_mac_t* lr1_mac_obj, bool is_send_at_time );
+/**
+ * @brief update the internal join_status;
+ *
+ *  @param [in] lr1_mac_obj 
+ * @param [in] join_status_t join_status
+ */
+void lr1mac_core_set_join_status( lr1_stack_mac_t* lr1_mac_obj, join_status_t join_status );
 #endif

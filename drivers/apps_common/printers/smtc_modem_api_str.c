@@ -64,16 +64,6 @@ const char *smtc_modem_return_code_to_str(const smtc_modem_return_code_t value)
       return (const char *) "SMTC_MODEM_RC_FAIL";
     }
 
-    case SMTC_MODEM_RC_BAD_SIZE:
-    {
-      return (const char *) "SMTC_MODEM_RC_BAD_SIZE";
-    }
-
-    case SMTC_MODEM_RC_MODEM_E_FRAME_ERROR:
-    {
-      return (const char *) "SMTC_MODEM_RC_MODEM_E_FRAME_ERROR";
-    }
-
     case SMTC_MODEM_RC_NO_TIME:
     {
       return (const char *) "SMTC_MODEM_RC_NO_TIME";
@@ -82,6 +72,11 @@ const char *smtc_modem_return_code_to_str(const smtc_modem_return_code_t value)
     case SMTC_MODEM_RC_INVALID_STACK_ID:
     {
       return (const char *) "SMTC_MODEM_RC_INVALID_STACK_ID";
+    }
+
+    case SMTC_MODEM_RC_NO_EVENT:
+    {
+      return (const char *) "SMTC_MODEM_RC_NO_EVENT";
     }
 
     default:
@@ -339,175 +334,73 @@ const char *smtc_modem_mc_grp_id_to_str(const smtc_modem_mc_grp_id_t value)
 
 }
 
-const char *smtc_modem_stack_state_to_str(const smtc_modem_stack_state_t value)
+const char *smtc_modem_dl_window_to_str(const smtc_modem_dl_window_t value)
 {
   switch (value)
   {
-    case SMTC_MODEM_STACK_STATE_IDLE:
+    case SMTC_MODEM_DL_WINDOW_RX1:
     {
-      return (const char *) "SMTC_MODEM_STACK_STATE_IDLE";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RX1";
     }
 
-    case SMTC_MODEM_STACK_STATE_BUSY:
+    case SMTC_MODEM_DL_WINDOW_RX2:
     {
-      return (const char *) "SMTC_MODEM_STACK_STATE_BUSY";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RX2";
     }
 
-    case SMTC_MODEM_STACK_STATE_TX_WAIT:
+    case SMTC_MODEM_DL_WINDOW_RXC:
     {
-      return (const char *) "SMTC_MODEM_STACK_STATE_TX_WAIT";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXC";
     }
 
-    default:
+    case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP0:
     {
-      return (const char *) "Unknown";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXC_MC_GRP0";
     }
 
-  }
-
-}
-
-const char *smtc_modem_event_downdata_window_to_str(const smtc_modem_event_downdata_window_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RX1:
+    case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP1:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RX1";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXC_MC_GRP1";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RX2:
+    case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP2:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RX2";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXC_MC_GRP2";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC:
+    case SMTC_MODEM_DL_WINDOW_RXC_MC_GRP3:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXC_MC_GRP3";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP0:
+    case SMTC_MODEM_DL_WINDOW_RXB:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP0";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXB";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP1:
+    case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP0:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP1";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXB_MC_GRP0";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP2:
+    case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP1:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP2";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXB_MC_GRP1";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP3:
+    case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP2:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXC_MC_GRP3";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXB_MC_GRP2";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB:
+    case SMTC_MODEM_DL_WINDOW_RXB_MC_GRP3:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXB_MC_GRP3";
     }
 
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP0:
+    case SMTC_MODEM_DL_WINDOW_RXBEACON:
     {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP0";
-    }
-
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP1:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP1";
-    }
-
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP2:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP2";
-    }
-
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP3:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXB_MC_GRP3";
-    }
-
-    case SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXBEACON:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_DOWNDATA_WINDOW_RXBEACON";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
-const char *smtc_modem_time_sync_service_to_str(const smtc_modem_time_sync_service_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_TIME_MAC_SYNC:
-    {
-      return (const char *) "SMTC_MODEM_TIME_MAC_SYNC";
-    }
-
-    case SMTC_MODEM_TIME_ALC_SYNC:
-    {
-      return (const char *) "SMTC_MODEM_TIME_ALC_SYNC";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
-const char *smtc_modem_event_time_status_to_str(const smtc_modem_event_time_status_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_TIME_NOT_VALID:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_TIME_NOT_VALID";
-    }
-
-    case SMTC_MODEM_EVENT_TIME_VALID:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_TIME_VALID";
-    }
-
-    case SMTC_MODEM_EVENT_TIME_VALID_BUT_NOT_SYNC:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_TIME_VALID_BUT_NOT_SYNC";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
-const char *smtc_modem_event_link_check_status_to_str(const smtc_modem_event_link_check_status_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_LINK_CHECK_NOT_RECEIVED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_LINK_CHECK_NOT_RECEIVED";
-    }
-
-    case SMTC_MODEM_EVENT_LINK_CHECK_RECEIVED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_LINK_CHECK_RECEIVED";
+      return (const char *) "SMTC_MODEM_DL_WINDOW_RXBEACON";
     }
 
     default:
@@ -570,30 +463,7 @@ const char *smtc_modem_event_mute_status_to_str(const smtc_modem_event_mute_stat
 
 }
 
-const char *smtc_modem_event_uploaddone_status_to_str(const smtc_modem_event_uploaddone_status_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_UPLOADDONE_ABORTED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_UPLOADDONE_ABORTED";
-    }
-
-    case SMTC_MODEM_EVENT_UPLOADDONE_SUCCESSFUL:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_UPLOADDONE_SUCCESSFUL";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
-const char *smtc_modem_event_setconf_tag_to_str(const smtc_modem_event_setconf_tag_t value)
+const char *smtc_modem_event_setconf_opcode_to_str(const smtc_modem_event_setconf_opcode_t value)
 {
   switch (value)
   {
@@ -621,29 +491,6 @@ const char *smtc_modem_event_setconf_tag_to_str(const smtc_modem_event_setconf_t
 
 }
 
-const char *smtc_modem_event_almanac_update_status_to_str(const smtc_modem_event_almanac_update_status_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_ALMANAC_UPDATE_COMPLETED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_ALMANAC_UPDATE_COMPLETED";
-    }
-
-    case SMTC_MODEM_EVENT_ALMANAC_UPDATE_STATUS_REQUESTED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_ALMANAC_UPDATE_STATUS_REQUESTED";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
 const char *smtc_modem_event_class_b_status_to_str(const smtc_modem_event_class_b_status_t value)
 {
   switch (value)
@@ -656,92 +503,6 @@ const char *smtc_modem_event_class_b_status_to_str(const smtc_modem_event_class_
     case SMTC_MODEM_EVENT_CLASS_B_READY:
     {
       return (const char *) "SMTC_MODEM_EVENT_CLASS_B_READY";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
-const char *smtc_modem_event_class_b_ping_slot_status_to_str(const smtc_modem_event_class_b_ping_slot_status_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_CLASS_B_PING_SLOT_NOT_ANSWERED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_CLASS_B_PING_SLOT_NOT_ANSWERED";
-    }
-
-    case SMTC_MODEM_EVENT_CLASS_B_PING_SLOT_ANSWERED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_CLASS_B_PING_SLOT_ANSWERED";
-    }
-
-    default:
-    {
-      return (const char *) "Unknown";
-    }
-
-  }
-
-}
-
-const char *smtc_modem_event_user_radio_access_status_to_str(const smtc_modem_event_user_radio_access_status_t value)
-{
-  switch (value)
-  {
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_RX_ERROR:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_RX_ERROR";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_CAD_OK:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_CAD_OK";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_CAD_DONE:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_CAD_DONE";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_TX_DONE:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_TX_DONE";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_RX_DONE:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_RX_DONE";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_RX_TIMEOUT:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_RX_TIMEOUT";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_WIFI_SCAN_DONE:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_WIFI_SCAN_DONE";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_GNSS_SCAN_DONE:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_GNSS_SCAN_DONE";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_ABORTED:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_ABORTED";
-    }
-
-    case SMTC_MODEM_EVENT_USER_RADIO_ACCESS_UNKNOWN:
-    {
-      return (const char *) "SMTC_MODEM_EVENT_USER_RADIO_ACCESS_UNKNOWN";
     }
 
     default:
@@ -806,18 +567,23 @@ const char *smtc_modem_class_b_ping_slot_periodicity_to_str(const smtc_modem_cla
 
 }
 
-const char *smtc_modem_frame_pending_bit_status_to_str(const smtc_modem_frame_pending_bit_status_t value)
+const char *smtc_modem_store_and_forward_state_to_str(const smtc_modem_store_and_forward_state_t value)
 {
   switch (value)
   {
-    case SMTC_MODEM_NO_DATA_ARE_PENDING:
+    case SMTC_MODEM_STORE_AND_FORWARD_DISABLE:
     {
-      return (const char *) "SMTC_MODEM_NO_DATA_ARE_PENDING";
+      return (const char *) "SMTC_MODEM_STORE_AND_FORWARD_DISABLE";
     }
 
-    case SMTC_MODEM_DATA_ARE_PENDING:
+    case SMTC_MODEM_STORE_AND_FORWARD_ENABLE:
     {
-      return (const char *) "SMTC_MODEM_DATA_ARE_PENDING";
+      return (const char *) "SMTC_MODEM_STORE_AND_FORWARD_ENABLE";
+    }
+
+    case SMTC_MODEM_STORE_AND_FORWARD_SUSPEND:
+    {
+      return (const char *) "SMTC_MODEM_STORE_AND_FORWARD_SUSPEND";
     }
 
     default:
@@ -829,26 +595,23 @@ const char *smtc_modem_frame_pending_bit_status_to_str(const smtc_modem_frame_pe
 
 }
 
-const char *smtc_modem_d2d_class_b_tx_done_status_to_str(const smtc_modem_d2d_class_b_tx_done_status_t value)
+const char *smtc_modem_event_uploaddone_status_to_str(const smtc_modem_event_uploaddone_status_t value)
 {
   switch (value)
   {
-    case SMTC_MODEM_EVENT_D2D_CLASS_B_TX_DONE_NOT_SENT:
+    case SMTC_MODEM_EVENT_UPLOAD_DONE_ABORTED:
     {
-      return (const char *) "SMTC_MODEM_EVENT_D2D_CLASS_B_TX_DONE_NOT_SENT";
+      return (const char *) "SMTC_MODEM_EVENT_UPLOAD_DONE_ABORTED";
     }
 
-    case SMTC_MODEM_EVENT_D2D_CLASS_B_TX_DONE_SENT:
+    case SMTC_MODEM_EVENT_UPLOAD_DONE_SUCCESSFUL:
     {
-      return (const char *) "SMTC_MODEM_EVENT_D2D_CLASS_B_TX_DONE_SENT";
+      return (const char *) "SMTC_MODEM_EVENT_UPLOAD_DONE_SUCCESSFUL";
     }
 
     default:
     {
       return (const char *) "Unknown";
     }
-
   }
-
 }
-

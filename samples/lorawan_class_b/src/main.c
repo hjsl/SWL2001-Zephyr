@@ -26,7 +26,7 @@ LOG_MODULE_REGISTER(main);
 
 static void on_modem_reset(uint16_t reset_count);
 static void on_modem_network_joined(void);
-
+static void on_modem_alarm(void);
 static void on_modem_down_data(int8_t rssi, int8_t snr,
 			       smtc_modem_event_downdata_window_t rx_window, uint8_t port,
 			       const uint8_t *payload, uint8_t size);
@@ -40,6 +40,16 @@ static void on_class_b_status(smtc_modem_event_class_b_status_t status);
  * @brief LoRaWAN class B ping slot periodicity
  */
 #define LORAWAN_CLASS_B_PING_SLOT SMTC_MODEM_CLASS_B_PINGSLOT_16_S
+
+/**
+ * @brief Application time synchronization service - see @ref smtc_modem_time_sync_service_t
+ */
+#define APP_MODEM_TIME_SYNC_SERVICE SMTC_MODEM_TIME_MAC_SYNC
+
+/**
+ * @brief Application time synchronization interval in second
+ */
+#define APP_MODEM_TIME_SYNC_INTERVAL_IN_S 900
 
 /**
  * @brief Interval between 2 time synchronization once time is acquired
@@ -58,10 +68,11 @@ static void on_class_b_status(smtc_modem_event_class_b_status_t status);
 
 /*LoRaWAN configuration */
 static struct smtc_app_lorawan_cfg lorawan_cfg = {
-	.use_chip_eui_as_dev_eui = true,
-	.join_eui = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
-	.app_key = {0x40, 0x4C, 0xE2, 0xE8, 0xA0, 0xD4, 0x7C, 0x47, 0x90, 0x1D, 0xCB, 0xBA, 0xFA,
-		    0x0E, 0xED, 0x56},
+        .use_chip_eui_as_dev_eui = false,
+        .dev_eui = {0xb5, 0x09, 0xb4, 0x53, 0xfa, 0x12, 0x58, 0x79},
+        .join_eui = {0xe0, 0x96, 0xb0, 0x1d, 0xa5, 0xbf, 0x49, 0x4a},
+        .app_key =  {0xda, 0x87, 0xec, 0x9c, 0x3e, 0xf7, 0x43, 0x52, 0x49, 0x2d, 0x67, 0x08,
+  0x2f, 0x2e, 0xa2, 0xe6},
 	.class = SMTC_MODEM_CLASS_A, /* Start as class A - class B is enabled after joining */
 	.region = SMTC_MODEM_REGION_EU_868,
 };
@@ -132,15 +143,28 @@ void on_modem_reset(uint16_t reset_count)
  */
 void on_modem_network_joined(void)
 {
-	LOG_INF("JOINED!");
+	LOG_WRN("JOINED!");
+
+	        smtc_modem_adr_set_profile(STACK_ID, SMTC_MODEM_ADR_PROFILE_NETWORK_CONTROLLED, NULL);
 
 	/* Configure class B parameters */
 	smtc_modem_class_b_set_ping_slot_periodicity(STACK_ID, LORAWAN_CLASS_B_PING_SLOT);
 	smtc_modem_lorawan_class_b_request_ping_slot_info(STACK_ID);
 
-	smtc_modem_time_start_sync_service(STACK_ID, SMTC_MODEM_TIME_MAC_SYNC);
-	smtc_modem_time_set_sync_interval_s(TIME_SYNC_APP_INTERVAL_S);
-	smtc_modem_time_set_sync_invalid_delay_s(TIME_SYNC_APP_INVALID_DELAY_S);
+        /* configure time sync service */
+        smtc_modem_return_code_t ret =
+                smtc_modem_time_set_sync_interval_s(APP_MODEM_TIME_SYNC_INTERVAL_IN_S);
+        if (ret != SMTC_MODEM_RC_OK) {
+                LOG_ERR("Unable to initialize time sync, err: %d", ret);
+                /* NOTE: if ret == SMTC_MODEM_RC_FAIL, you might have forgotten to set
+                 * CONFIG_LORA_BASICS_MODEM_FILE_UPLOAD
+                 */
+        }
+        smtc_modem_time_start_sync_service(STACK_ID, APP_MODEM_TIME_SYNC_SERVICE);
+
+//	smtc_modem_time_start_sync_service(STACK_ID, SMTC_MODEM_TIME_MAC_SYNC);
+//	smtc_modem_time_set_sync_interval_s(TIME_SYNC_APP_INTERVAL_S);
+//	smtc_modem_time_set_sync_invalid_delay_s(TIME_SYNC_APP_INVALID_DELAY_S);
 }
 
 /**
@@ -152,7 +176,7 @@ void on_modem_time_sync(smtc_modem_event_time_status_t status)
 	case SMTC_MODEM_EVENT_TIME_VALID: {
 		uint32_t utc_time;
 		smtc_app_get_utc_time(&utc_time);
-		LOG_INF("Current utc time: %d", utc_time);
+		LOG_WRN("Current utc time: %d", utc_time);
 
 		is_time_synced = true;
 

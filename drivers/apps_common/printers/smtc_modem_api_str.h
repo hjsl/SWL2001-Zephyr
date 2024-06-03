@@ -56,22 +56,14 @@ const char *smtc_modem_stream_cipher_mode_to_str(const smtc_modem_stream_cipher_
 const char *smtc_modem_dm_info_interval_format_to_str(const smtc_modem_dm_info_interval_format_t value);
 const char *smtc_modem_region_to_str(const smtc_modem_region_t value);
 const char *smtc_modem_mc_grp_id_to_str(const smtc_modem_mc_grp_id_t value);
-const char *smtc_modem_stack_state_to_str(const smtc_modem_stack_state_t value);
-const char *smtc_modem_event_downdata_window_to_str(const smtc_modem_event_downdata_window_t value);
-const char *smtc_modem_time_sync_service_to_str(const smtc_modem_time_sync_service_t value);
-const char *smtc_modem_event_time_status_to_str(const smtc_modem_event_time_status_t value);
-const char *smtc_modem_event_link_check_status_to_str(const smtc_modem_event_link_check_status_t value);
+const char *smtc_modem_dl_window_to_str(const smtc_modem_dl_window_t value);
 const char *smtc_modem_event_txdone_status_to_str(const smtc_modem_event_txdone_status_t value);
 const char *smtc_modem_event_mute_status_to_str(const smtc_modem_event_mute_status_t value);
 const char *smtc_modem_event_uploaddone_status_to_str(const smtc_modem_event_uploaddone_status_t value);
-const char *smtc_modem_event_setconf_tag_to_str(const smtc_modem_event_setconf_tag_t value);
-const char *smtc_modem_event_almanac_update_status_to_str(const smtc_modem_event_almanac_update_status_t value);
+const char *smtc_modem_event_setconf_opcode_to_str(const smtc_modem_event_setconf_opcode_t value);
 const char *smtc_modem_event_class_b_status_to_str(const smtc_modem_event_class_b_status_t value);
-const char *smtc_modem_event_class_b_ping_slot_status_to_str(const smtc_modem_event_class_b_ping_slot_status_t value);
-const char *smtc_modem_event_user_radio_access_status_to_str(const smtc_modem_event_user_radio_access_status_t value);
 const char *smtc_modem_class_b_ping_slot_periodicity_to_str(const smtc_modem_class_b_ping_slot_periodicity_t value);
-const char *smtc_modem_frame_pending_bit_status_to_str(const smtc_modem_frame_pending_bit_status_t value);
-const char *smtc_modem_d2d_class_b_tx_done_status_to_str(const smtc_modem_d2d_class_b_tx_done_status_t value);
+const char *smtc_modem_store_and_forward_state_to_str(const smtc_modem_store_and_forward_state_t value);
 
 #else
 
@@ -83,22 +75,15 @@ const char *smtc_modem_d2d_class_b_tx_done_status_to_str(const smtc_modem_d2d_cl
 #define smtc_modem_dm_info_interval_format_to_str(...) ""
 #define smtc_modem_region_to_str(...) ""
 #define smtc_modem_mc_grp_id_to_str(...) ""
-#define smtc_modem_stack_state_to_str(...) ""
-#define smtc_modem_event_downdata_window_to_str(...) ""
-#define smtc_modem_time_sync_service_to_str(...) ""
-#define smtc_modem_event_time_status_to_str(...) ""
-#define smtc_modem_event_link_check_status_to_str(...) ""
+#define smtc_modem_modem_dl_window_to_str(...) ""
 #define smtc_modem_event_txdone_status_to_str(...) ""
 #define smtc_modem_event_mute_status_to_str(...) ""
 #define smtc_modem_event_uploaddone_status_to_str(...) ""
-#define smtc_modem_event_setconf_tag_to_str(...) ""
-#define smtc_modem_event_almanac_update_status_to_str(...) ""
+#define smtc_modem_event_setconf_opcode_to_str(...) ""
 #define smtc_modem_event_class_b_status_to_str(...) ""
 #define smtc_modem_event_class_b_ping_slot_status_to_str(...) ""
-#define smtc_modem_event_user_radio_access_status_to_str(...) ""
 #define smtc_modem_class_b_ping_slot_periodicity_to_str(...) ""
-#define smtc_modem_frame_pending_bit_status_to_str(...) ""
-#define smtc_modem_d2d_class_b_tx_done_status_to_str(...) ""
+#define smtc_modem_store_and_forward_state_to_str(...) ""
 
 #endif /* CONFIG_LORA_BASICS_MODEM_PRINTERS */
 

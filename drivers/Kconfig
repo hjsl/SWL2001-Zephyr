@@ -19,12 +19,6 @@ config LORA_BASICS_MODEM_USER_STORAGE_IMPL
 
 if LORA_BASICS_MODEM
 
-config LORA_BASICS_MODEM_USE_GNSS
-    bool "Enable gnss almanac update features"
-    default n
-    help
-      Enable if almanac updates via LoRa Cloud are required.
-
 choice
 	prompt "Cryptography engine"
 	default LORA_BASICS_MODEM_CRYPTOGRAPHY_LR11XX
@@ -115,6 +109,10 @@ config LORA_BASICS_MODEM_FILE_UPLOAD
 
 config LORA_BASICS_MODEM_TIME_SYNC
     bool "Enable time sync support"
+    default n
+
+config LORA_BASICS_MODEM_GEOLOCATION
+    bool "Enable geolocation support"
     default n
 
 module = LORA_BASICS_MODEM

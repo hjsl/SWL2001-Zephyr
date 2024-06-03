@@ -101,6 +101,16 @@ extern "C" {
  */
 #define RP_TASK_RE_SCHEDULE_OFFSET_TIME             2000  // for 2 seconds
 
+/*!
+ *
+ */
+#define RP_MCU_FAIRNESS_DELAY_MS                    10
+
+/*!
+ *
+ */
+#define RP_DISABLE_FAILSAFE_KEY                     0xF00D4BEE
+
 // clang-format on
 
 /*
@@ -127,10 +137,12 @@ typedef struct rp_radio_params_s
     {
         union
         {
-            ralf_params_gfsk_t gfsk;
-            ralf_params_lora_t lora;
+            ralf_params_gfsk_t     gfsk;
+            ralf_params_lora_t     lora;
+            ralf_params_lora_cad_t lora_cad;
         };
         uint32_t timeout_in_ms;
+        ral_lora_cad_params_t cad;
         union
         {
             ral_gfsk_rx_pkt_status_t gfsk_pkt_status;
@@ -160,6 +172,9 @@ typedef enum rp_task_types_e
     RP_TASK_TYPE_WIFI_RSSI,
     RP_TASK_TYPE_LBT,
     RP_TASK_TYPE_USER,
+    RP_TASK_TYPE_TX_BLE,
+    RP_TASK_TYPE_RX_BLE,
+    RP_TASK_TYPE_RX_BLE_SCAN,
     RP_TASK_TYPE_NONE,
 } rp_task_types_t;
 
@@ -206,15 +221,14 @@ typedef enum rp_next_state_status_e
  */
 typedef struct rp_task_s
 {
-    uint8_t         hook_id;
-    rp_task_types_t type;
-    void ( *launch_task_callbacks )( void* );
+    uint8_t          hook_id;
+    rp_task_types_t  type;
+    void             ( *launch_task_callbacks )( void* );
     uint8_t          priority;
     bool             schedule_task_low_priority;
     rp_task_states_t state;
     // absolute Ms
     uint32_t start_time_ms;
-    uint32_t start_time_100us;
     // Have to keep the initial start time to be able to switch asap task to
     // schedule task after long period
     uint32_t start_time_init_ms;
@@ -230,6 +244,7 @@ typedef enum rp_hook_status_e
     RP_HOOK_STATUS_ID_ERROR,
     RP_TASK_STATUS_ALREADY_RUNNING,
     RP_TASK_STATUS_SCHEDULE_TASK_IN_PAST,
+    RP_TASK_STATUS_TASK_TOO_FAR_IN_FUTURE,
 } rp_hook_status_t;
 
 /*!

@@ -8,6 +8,8 @@ manifest:
       url-base: https://github.com/nrfconnect
     - name: irnas
       url-base: https://github.com/irnas
+    - name: hjsl
+      url-base: https://github.com/hjsl
 
   projects:
     # the NCS repository
@@ -16,7 +18,7 @@ manifest:
       remote: nrfconnect
       # IMPORTANT: When changing NCS revision you need to change revision of
       # Zephyr project below so it matches.
-      revision: v2.2.0
+      revision: v2.6.1
       import:
         name-allowlist:
           # Ignore NCS private repos, keep this list sorted alphabetically.
@@ -43,7 +45,7 @@ manifest:
     - name: zephyr
       remote: nrfconnect
       repo-path: sdk-zephyr
-      revision: v3.2.99-ncs1
+      revision: v3.5.99-ncs1-1
       import:
         # In addition to the zephyr repository itself, NCS also
         # imports the contents of zephyr/west.yml at the above
@@ -92,6 +94,6 @@ manifest:
     # irnas drivers and modules
     - name: SWDR001-Zephyr
       repo-path: SWDR001-Zephyr
-      path: irnas/SWDR001-Zephyr
-      remote: irnas
-      revision: v1.5.1
+      path: modules/lib/SWDR001-Zephyr
+      remote: hjsl
+      revision: dev

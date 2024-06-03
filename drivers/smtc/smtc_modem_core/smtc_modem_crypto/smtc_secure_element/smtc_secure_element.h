@@ -139,6 +139,9 @@ typedef enum smtc_se_key_identifier_e
     SMTC_SE_MC_KEY_3,                            //!< Multicast root key index 3
     SMTC_SE_MC_APP_S_KEY_3,                      //!< Multicast Application session key index 3
     SMTC_SE_MC_NWK_S_KEY_3,                      //!< Multicast Network session key index 3
+    SMTC_RELAY_ROOT_WOR_S_KEY,                   //!< Relay Root Session Key
+    SMTC_RELAY_WOR_S_INT_KEY,                    //!< Relay WOR Integrity Session Key
+    SMTC_RELAY_WOR_S_ENC_KEY,                    //!< Relay WOR Encryption Session Key
     SMTC_SE_SLOT_RAND_ZERO_KEY,                  //!< Zero key for slot randomization in class B
     SMTC_SE_NO_KEY,                              //!< No Key
 } smtc_se_key_identifier_t;
@@ -160,10 +163,11 @@ smtc_se_return_code_t smtc_secure_element_init( void );
  *
  * @param [in] key_id Key identifier
  * @param [in] key Key value
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_set_key( smtc_se_key_identifier_t key_id,
-                                                   const uint8_t            key[SMTC_SE_KEY_SIZE] );
+smtc_se_return_code_t smtc_secure_element_set_key( smtc_se_key_identifier_t key_id, const uint8_t key[SMTC_SE_KEY_SIZE],
+                                                   uint8_t stack_id );
 
 /**
  * @brief Computes a CMAC of a message using provided initial Bx block
@@ -173,11 +177,12 @@ smtc_se_return_code_t smtc_secure_element_set_key( smtc_se_key_identifier_t key_
  * @param [in] size Data buffer size
  * @param [in] key_id Key identifier to determine the AES key to be used
  * @param [in] cmac Computed cmac
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_compute_aes_cmac( uint8_t* mic_bx_buffer, const uint8_t* buffer,
+smtc_se_return_code_t smtc_secure_element_compute_aes_cmac( const uint8_t* mic_bx_buffer, const uint8_t* buffer,
                                                             uint16_t size, smtc_se_key_identifier_t key_id,
-                                                            uint32_t* cmac );
+                                                            uint32_t* cmac, uint8_t stack_id );
 
 /**
  * @brief Verifies a CMAC (computes and compare with expected cmac)
@@ -186,10 +191,11 @@ smtc_se_return_code_t smtc_secure_element_compute_aes_cmac( uint8_t* mic_bx_buff
  * @param [in] size Data buffer size
  * @param [in] expected_cmac Expected cmac
  * @param [in] key_id Key identifier to determine the AES key to be used
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
 smtc_se_return_code_t smtc_secure_element_verify_aes_cmac( uint8_t* buffer, uint16_t size, uint32_t expected_cmac,
-                                                           smtc_se_key_identifier_t key_id );
+                                                           smtc_se_key_identifier_t key_id, uint8_t stack_id );
 
 /**
  * @brief Encrypt a buffer
@@ -198,10 +204,12 @@ smtc_se_return_code_t smtc_secure_element_verify_aes_cmac( uint8_t* buffer, uint
  * @param [in] size Data buffer size - this value shall be a multiple of 16
  * @param [in] key_id Key identifier to determine the AES key to be used
  * @param [in] enc_buffer Encrypted buffer
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
 smtc_se_return_code_t smtc_secure_element_aes_encrypt( const uint8_t* buffer, uint16_t size,
-                                                       smtc_se_key_identifier_t key_id, uint8_t* enc_buffer );
+                                                       smtc_se_key_identifier_t key_id, uint8_t* enc_buffer,
+                                                       uint8_t stack_id );
 
 /**
  * @brief Derives and store a key
@@ -209,10 +217,12 @@ smtc_se_return_code_t smtc_secure_element_aes_encrypt( const uint8_t* buffer, ui
  * @param [in] input Input data from which the key is derived ( 16 bytes )
  * @param [in] rootkey_id Key identifier of the root key to use to perform the derivation
  * @param [in] targetkey_id Key identifier of the key which will be derived
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
 smtc_se_return_code_t smtc_secure_element_derive_and_store_key( uint8_t* input, smtc_se_key_identifier_t rootkey_id,
-                                                                smtc_se_key_identifier_t targetkey_id );
+                                                                smtc_se_key_identifier_t targetkey_id,
+                                                                uint8_t                  stack_id );
 
 /**
  * @brief Process join_accept message.
@@ -226,37 +236,41 @@ smtc_se_return_code_t smtc_secure_element_derive_and_store_key( uint8_t* input, 
  * @param [in] version_minor Detected LoRaWAN specification version minor field.
  *                          - 0 -> LoRaWAN 1.0.x
  *                          - 1 -> LoRaWAN 1.1.x
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
 smtc_se_return_code_t smtc_secure_element_process_join_accept( smtc_se_join_req_identifier_t join_req_type,
                                                                uint8_t joineui[SMTC_SE_EUI_SIZE], uint16_t dev_nonce,
                                                                const uint8_t* enc_join_accept,
                                                                uint8_t enc_join_accept_size, uint8_t* dec_join_accept,
-                                                               uint8_t* version_minor );
+                                                               uint8_t* version_minor, uint8_t stack_id );
 
 /**
  * @brief Sets the DevEUI
  *
  * @param [in] deveui LoRaWAN devEUI
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_set_deveui( const uint8_t deveui[SMTC_SE_EUI_SIZE] );
+smtc_se_return_code_t smtc_secure_element_set_deveui( const uint8_t deveui[SMTC_SE_EUI_SIZE], uint8_t stack_id );
 
 /**
  * @brief Gets the DevEUI
  *
  * @param [out] deveui The current DevEUI
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_get_deveui( uint8_t deveui[SMTC_SE_EUI_SIZE] );
+smtc_se_return_code_t smtc_secure_element_get_deveui( uint8_t deveui[SMTC_SE_EUI_SIZE], uint8_t stack_id );
 
 /**
  * @brief Sets the JoinEUI
  *
  * @param [in] joineui LoRaWAN JoinEUI
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_set_joineui( const uint8_t joineui[SMTC_SE_EUI_SIZE] );
+smtc_se_return_code_t smtc_secure_element_set_joineui( const uint8_t joineui[SMTC_SE_EUI_SIZE], uint8_t stack_id );
 
 /**
  * @brief Gets the JoinEUI
@@ -264,37 +278,41 @@ smtc_se_return_code_t smtc_secure_element_set_joineui( const uint8_t joineui[SMT
  * @param [out] joineui The current JoinEUI
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_get_joineui( uint8_t joineui[SMTC_SE_EUI_SIZE] );
+smtc_se_return_code_t smtc_secure_element_get_joineui( uint8_t joineui[SMTC_SE_EUI_SIZE], uint8_t stack_id );
 
 /**
  * @brief Sets the pin
  *
  * @param [in] pin The pin code
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_set_pin( const uint8_t pin[SMTC_SE_PIN_SIZE] );
+smtc_se_return_code_t smtc_secure_element_set_pin( const uint8_t pin[SMTC_SE_PIN_SIZE], uint8_t stack_id );
 
 /**
  * @brief Gets the pin
  *
  * @param [out] pin The current pin code
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_get_pin( uint8_t pin[SMTC_SE_PIN_SIZE] );
+smtc_se_return_code_t smtc_secure_element_get_pin( uint8_t pin[SMTC_SE_PIN_SIZE], uint8_t stack_id );
 
 /**
  * @brief Store the current secure element context into NVM
  *
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_store_context( void );
+smtc_se_return_code_t smtc_secure_element_store_context( uint8_t stack_id );
 
 /**
  * @brief Restore the stored secure element context from NVM to RAM
  *
+ * @param [in] stack_id The Stack Identifier
  * @return Secure element return code as defined in @ref smtc_se_return_code_t
  */
-smtc_se_return_code_t smtc_secure_element_restore_context( void );
+smtc_se_return_code_t smtc_secure_element_restore_context( uint8_t stack_id );
 
 #ifdef __cplusplus
 }

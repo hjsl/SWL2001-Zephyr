@@ -52,14 +52,17 @@ extern "C" {
  * --- PUBLIC MACROS ----------------------------------------------------------------
  */
 #define SMTC_MODEM_HAL_TRACE_PRINTF_DEBUG( ... )  //@todo push it to the modem layer
+
 /*!
  * \brief Returns the minimum value between a and b
  *
- * \param [IN] a 1st value
- * \param [IN] b 2nd value
+ * \param [in] a 1st value
+ * \param [in] b 2nd value
  * \retval minValue Minimum value
  */
+#ifndef MIN
 #define MIN( a, b ) ( ( ( a ) < ( b ) ) ? ( a ) : ( b ) )
+#endif
 
 /*!
  * \brief Returns the maximum value between a and b
@@ -97,45 +100,6 @@ uint8_t SMTC_ARE_CLR_BYTE16( uint16_t* array, uint8_t length );
  */
 
 /*!
- * \brief Copy size elements of src array to dst array
- *
- * \remark STM32 Standard memcpy function only works on pointers that are aligned
- *
- * \param [OUT] dst   Destination array
- * \param [IN]  src   Source array
- * \param [IN]  size  Number of bytes to be copied
- */
-void memcpy1( uint8_t* dst, const uint8_t* src, uint16_t size );
-
-/*!
- * \brief Reverse copy size elements of src
- * array to dst array
- *
- * \remark STM32 Standard memcpy function only
- * works on pointers that are aligned
- *
- * \param [OUT] dst   Destination array
- * \param [IN]  src   Source array
- * \param [IN]  size  Number of bytes to be
- * copied
- */
-void memcpy1_r( uint8_t* dst, const uint8_t* src, uint16_t size );
-
-/*!
- * \brief Set size elements of dst array with
- * value
- *
- * \remark STM32 Standard memset function only
- * works on pointers that are aligned
- *
- * \param [OUT] dst   Destination array
- * \param [IN]  value Default value
- * \param [IN]  size  Number of bytes to be
- * copied
- */
-void memset1( uint8_t* dst, uint8_t value, uint16_t size );
-
-/*!
  * \brief Crc32 implementation for flash
  * corruption
  *
@@ -158,15 +122,14 @@ status_lorawan_t lr1mac_rx_payload_min_size_check( uint8_t rx_payload_size );
  * \brief Extract MHDR
  *
  */
-status_lorawan_t lr1mac_rx_mhdr_extract( uint8_t* rx_payload, uint8_t* rx_ftype, uint8_t* rx_major,
-                                         uint8_t* tx_ack_bit );
+status_lorawan_t lr1mac_rx_mhdr_extract( uint8_t* rx_payload, uint8_t* rx_ftype, uint8_t* rx_major, bool* tx_ack_bit );
 
 /*!
  * \brief Extract FHDR
  *
  */
 int lr1mac_rx_fhdr_extract( uint8_t* rx_payload, uint8_t rx_payload_size, uint8_t* rx_fopts_length,
-                            uint16_t* fcnt_dwn_tmp, uint32_t dev_addr, uint8_t* rx_fport, uint8_t* rx_payload_empty,
+                            uint16_t* fcnt_dwn_tmp, uint32_t dev_addr, uint8_t* rx_fport, bool* rx_fport_present,
                             uint8_t* rx_fctrl, uint8_t* rx_fopts );
 /*!
  * \brief Extract MHDR

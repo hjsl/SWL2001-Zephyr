@@ -39,6 +39,7 @@
 
 #include <stdint.h>   // C99 types
 #include <stdbool.h>  // bool type
+#include <zephyr/device.h>
 
 #include "smtc_modem_api.h"
 #include "smtc_modem_test_api.h"
@@ -179,7 +180,7 @@ ralf_t modem_radio = RALF_SX128X_INSTANTIATE( NULL );
 #elif defined( SX126X )
 ralf_t modem_radio = RALF_SX126X_INSTANTIATE( NULL );
 #elif defined( LR11XX )
-ralf_t modem_radio = RALF_LR11XX_INSTANTIATE( NULL );
+ralf_t modem_radio = RALF_LR11XX_INSTANTIATE( DEVICE_DT_GET(DT_NODELABEL(lr11xx)) );
 #elif defined( SX127X )
 #include "sx127x.h"
 static sx127x_t sx127x;
@@ -259,7 +260,7 @@ void smtc_modem_init( void ( *callback_event )( void ) )
 }
 
 uint32_t smtc_modem_run_engine( void )
-{
+{printk("smtc_run_engine\n");
     rp_callback( &modem_radio_planner );
     return modem_supervisor_engine( );
 }

@@ -57,10 +57,12 @@ static void send_frame(const uint8_t *buffer, const uint8_t length, const bool c
 /*LoRaWAN configuration */
 static struct smtc_app_lorawan_cfg lorawan_cfg = {
 	.use_chip_eui_as_dev_eui = false,
-	.dev_eui = {0xb5, 0x09, 0xb4, 0x53, 0xfa, 0x12, 0x58, 0x79},
-	.join_eui = {0xe0, 0x96, 0xb0, 0x1d, 0xa5, 0xbf, 0x49, 0x4a},
-	.app_key =  {0xda, 0x87, 0xec, 0x9c, 0x3e, 0xf7, 0x43, 0x52, 0x49, 0x2d, 0x67, 0x08,
-  0x2f, 0x2e, 0xa2, 0xe6},
+	.dev_eui = {0x90, 0x04, 0x41, 0x21, 0x33, 0xe1, 0xde, 0x1c},
+	// .dev_eui = {0xb5, 0x09, 0xb4, 0x53, 0xfa, 0x12, 0x58, 0x79},
+	.join_eui = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+	// .join_eui = {0xe0, 0x96, 0xb0, 0x1d, 0xa5, 0xbf, 0x49, 0x4a},
+	.app_key = {0xda, 0x87, 0xec, 0x9c, 0x3e, 0xf7, 0x43, 0x52, 0x49, 0x2d, 0x67, 0x08, 0x2f, 0x2e, 0xa2, 0xe6},
+	// .app_key = {0x8d, 0xe1, 0xe3, 0xce, 0xbc, 0x0e, 0x60, 0x01, 0x76, 0xb9, 0x82, 0xf7, 0x29, 0x13, 0x33, 0x5f},
 	.class = SMTC_MODEM_CLASS_A,
 	.region = SMTC_MODEM_REGION_EU_868,
 };
@@ -75,7 +77,10 @@ static struct smtc_app_event_callbacks event_callbacks = {
 };
 
 /* LR11XX radio driver. */
-static const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(lr11xx));
+// static const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(lr11xx));
+
+static ralf_t modem_radio = RALF_LR11XX_INSTANTIATE(DEVICE_DT_GET(DT_NODELABEL(lr11xx)));
+
 
 /* Buffer for uplinks */
 static uint8_t app_data_buffer[256];
@@ -92,7 +97,7 @@ int main(void)
 	 * Please note that the reset callback will be called immediately after the first call to
 	 * smtc_modem_run_engine because of reset detection.
 	 */
-	smtc_app_init(dev, &event_callbacks, NULL);
+	smtc_app_init(&modem_radio, &event_callbacks, NULL);
 	smtc_app_display_versions();
 
 	/* Enter main loop:
@@ -174,6 +179,7 @@ static void on_modem_alarm(void)
  */
 static void on_modem_tx_done(smtc_modem_event_txdone_status_t status)
 {
+	LOG_WRN("TX DONE");
 	if (status == SMTC_MODEM_EVENT_TXDONE_NOT_SENT) {
 		LOG_ERR("Uplink was not sent");
 	} else if (status == SMTC_MODEM_EVENT_TXDONE_SENT) {

@@ -72,6 +72,7 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_REGION_WW_2G4 smtc/smtc_mo
 # MODEM_TRACE, MODEM_DEEP_TRACE, PERF_TEST, MIDDLEWARE
 
 zephyr_library_compile_definitions(NUMBER_OF_STACKS=1)
+zephyr_library_compile_definitions(MODEM_HAL_DBG_TRACE_RP=MODEM_HAL_FEATURE_ON)
 
 # these sources are always included
 zephyr_library_sources(
@@ -232,4 +233,4 @@ zephyr_library_sources(smtc_modem_hal_impl/logging/smtc_modem_hal_additional_pri
 zephyr_include_directories(smtc_modem_hal_impl/logging)
 
 # common layer
-add_subdirectory(apps_common)
+#add_subdirectory(apps_common)

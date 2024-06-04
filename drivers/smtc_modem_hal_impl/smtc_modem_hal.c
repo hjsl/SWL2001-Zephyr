@@ -11,6 +11,7 @@
 
 #include <smtc_modem_hal.h>
 #include <smtc_modem_hal_init.h>
+#include <smtc_modem_utilities.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/random/random.h>
@@ -412,6 +413,7 @@ int32_t smtc_modem_hal_get_signed_random_nb_in_range(const int32_t val_1, const 
  */
 void prv_lr11xx_event_cb(const struct device *dev)
 {
+	printk("irq2\n");
 	/* This logic is based on our understanding of section 5.24 of the porting guide.
 	 * NOTE:
 	 * In simple (init, join, uplink) tests smtc_modem_hal_radio_irq_clear_pending is
@@ -554,6 +556,8 @@ void smtc_modem_hal_user_lbm_irq( void )
 {
     // Do nothing in case implementation is bare metal
 	printk("irq!\n");
+	uint32_t sleep_time_ms = smtc_modem_run_engine();
+	printk("sleep_time_ms 2: %d\n", sleep_time_ms);
 }
 
 /*

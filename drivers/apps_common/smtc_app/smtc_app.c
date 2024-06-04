@@ -132,10 +132,10 @@ static int prv_get_voltage_cb(uint32_t *value)
 	return prv_env_callbacks->get_voltage_level(value);
 }
 
-void smtc_app_init(const struct device *dev, struct smtc_app_event_callbacks *callbacks,
+void smtc_app_init(const ralf_t *radio, struct smtc_app_event_callbacks *callbacks,
 		   struct smtc_app_env_callbacks *env_callbacks)
 {
-	__ASSERT(dev, "device must be provided");
+	__ASSERT(radio, "radio must be provided");
 	__ASSERT(callbacks, "callbacks must be provided");
 	/* env_callbacks can be NULL */
 #ifdef CONFIG_LORA_BASICS_MODEM_USER_STORAGE_IMPL
@@ -158,10 +158,9 @@ void smtc_app_init(const struct device *dev, struct smtc_app_event_callbacks *ca
 #endif
 	};
 
-	smtc_modem_hal_init(dev, &prv_hal_cb);
-	smtc_modem_set_radio_context(dev);
+	smtc_modem_hal_init((const struct device *)radio->ral.context, &prv_hal_cb);
 
-	smtc_modem_init(&prv_event_process);
+	smtc_modem_init(radio, &prv_event_process);
 }
 
 smtc_modem_return_code_t smtc_app_configure_lorawan_params(uint8_t stack_id,

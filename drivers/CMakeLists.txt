@@ -180,10 +180,12 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_TIME_SYNC
     smtc/smtc_modem_core/smtc_modem_services/src/alc_sync/alc_sync.c
 )
 
-# ADD_APP_GEOLOCATION
-zephyr_library_compile_definitions_ifdef(CONFIG CONFIG_LORA_BASICS_MODEM_GEOLOCATION ADD_APP_GEOLOCATION)
+# ADD_LBM_GEOLOCATION
+zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION ADD_LBM_GEOLOCATION)
+
 zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION
     smtc/smtc_modem_core/geolocation_services/gnss_helpers.c
+    smtc/smtc_modem_core/geolocation_services/mw_common.c
     smtc/smtc_modem_core/geolocation_services/mw_gnss_almanac.c
     smtc/smtc_modem_core/geolocation_services/mw_gnss_scan.c
     smtc/smtc_modem_core/geolocation_services/mw_gnss_send.c
@@ -226,6 +228,7 @@ zephyr_include_directories(smtc_modem_hal_impl)
 # radio abstraction implementation
 zephyr_library_sources(ral_lr11xx_bsp_impl/ral_lr11xx_bsp.c)
 zephyr_library_sources(ral_lr11xx_bsp_impl/radio_utilities.c)
+zephyr_library_sources(ral_lr11xx_bsp_impl/geolocation_lr11xx_bsp.c)
 zephyr_library_include_directories(ral_lr11xx_bsp_impl)
 
 # custom logging to hook into zephyr LOG correctly

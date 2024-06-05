@@ -260,7 +260,7 @@ void smtc_modem_init( void ( *callback_event )( void ) )
 }
 
 uint32_t smtc_modem_run_engine( void )
-{printk("smtc_run_engine\n");
+{
     rp_callback( &modem_radio_planner );
     return modem_supervisor_engine( );
 }

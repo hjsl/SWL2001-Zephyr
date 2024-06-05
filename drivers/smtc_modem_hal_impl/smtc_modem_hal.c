@@ -69,6 +69,7 @@ void smtc_modem_hal_init(const struct device *lr11xx, struct smtc_modem_hal_cb *
 	__ASSERT_NO_MSG(hal_cb->get_battery_level);
 	__ASSERT_NO_MSG(hal_cb->get_temperature);
 	__ASSERT_NO_MSG(hal_cb->get_voltage);
+	__ASSERT_NO_MSG(hal_cb->user_lbm_irq);
 
 #ifdef CONFIG_LORA_BASICS_MODEM_USER_STORAGE_IMPL
 	__ASSERT_NO_MSG(hal_cb->context_store);
@@ -413,7 +414,6 @@ int32_t smtc_modem_hal_get_signed_random_nb_in_range(const int32_t val_1, const 
  */
 void prv_lr11xx_event_cb(const struct device *dev)
 {
-	printk("irq2\n");
 	/* This logic is based on our understanding of section 5.24 of the porting guide.
 	 * NOTE:
 	 * In simple (init, join, uplink) tests smtc_modem_hal_radio_irq_clear_pending is
@@ -554,10 +554,7 @@ int8_t smtc_modem_hal_get_board_delay_ms(void)
 
 void smtc_modem_hal_user_lbm_irq( void )
 {
-    // Do nothing in case implementation is bare metal
-	printk("irq!\n");
-	uint32_t sleep_time_ms = smtc_modem_run_engine();
-	printk("sleep_time_ms 2: %d\n", sleep_time_ms);
+	prv_hal_cb->user_lbm_irq();
 }
 
 /*

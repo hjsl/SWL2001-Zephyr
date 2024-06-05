@@ -50,6 +50,11 @@ struct smtc_modem_hal_cb {
 	 */
 	int (*get_voltage)(uint32_t *value);
 
+	/**
+	 * @brief User defined callback function to be called on interrupt.   
+	 */
+	void (*user_lbm_irq)(void);
+
 #ifdef CONFIG_LORA_BASICS_MODEM_USER_STORAGE_IMPL
 
 	/**

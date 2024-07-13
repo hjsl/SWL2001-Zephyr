@@ -19,6 +19,10 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/reboot.h>
 
+#ifdef CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD
+#include <zephyr/storage/flash_map.h>
+#endif
+
 #include <lr11xx_board.h>
 #include <lr11xx_radio.h>
 #include <lr11xx_system.h>
@@ -56,6 +60,10 @@ static void *prv_smtc_modem_hal_radio_irq_context;
 static void (*prv_smtc_modem_hal_radio_irq_callback)(void *context);
 static bool prv_skip_next_radio_irq;
 
+#ifdef CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD
+static const struct flash_area *saf_area;
+#endif
+
 /* ------------ Initialization ------------
  *
  * This function is defined in smtc_modem_hal_init.h
@@ -75,6 +83,14 @@ void smtc_modem_hal_init(const struct device *lr11xx, struct smtc_modem_hal_cb *
 	__ASSERT_NO_MSG(hal_cb->context_store);
 	__ASSERT_NO_MSG(hal_cb->context_restore);
 #endif /* CONFIG_LORA_BASICS_MODEM_USER_STORAGE_IMPL */
+
+#ifdef CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD
+	int err = flash_area_open(FIXED_PARTITION_ID(saf_partition), &saf_area);
+	if (err) {
+		LOG_ERR("Failed to open flash area, err: %d", err);
+		/* Panic */
+	}
+#endif
 
 	prv_lr11xx_dev = lr11xx;
 	prv_hal_cb = hal_cb;
@@ -140,7 +156,7 @@ static void prv_smtc_modem_hal_timer_handler(struct k_timer *timer)
 		 * lr11xx may be performed. */
 		k_work_submit(&prv_smtc_modem_hal_timer_work);
 	}
-};
+}
 
 void smtc_modem_hal_start_timer(const uint32_t milliseconds, void (*callback)(void *context),
 				void *context)
@@ -297,16 +313,36 @@ void smtc_modem_hal_context_restore(const modem_context_type_t ctx_type, uint32_
 				    const uint32_t size)
 {
 	char path[30];
-	snprintk(path, sizeof(path), "smtc_modem_hal/context/%d/%d", ctx_type, offset);
-	prv_load(path, offset, buffer, size);
+	int err;
+
+	switch (ctx_type) {
+	case CONTEXT_STORE_AND_FORWARD:
+		err = flash_area_read(saf_area, offset, buffer, size);
+		if (err) {
+			LOG_ERR("Failed to read flash area, err: %d", err);
+		}
+		break;
+	default:
+		snprintk(path, sizeof(path), "smtc_modem_hal/context/%d/%d", ctx_type, offset);
+		prv_load(path, offset, buffer, size);
+		break;
+	}
 }
 
 void smtc_modem_hal_context_store(const modem_context_type_t ctx_type, uint32_t offset, const uint8_t *buffer,
 				  const uint32_t size)
 {
 	char path[30];
-	snprintk(path, sizeof(path), "smtc_modem_hal/context/%d/%d", ctx_type, offset);
-	prv_store(path, offset, buffer, size);
+
+	switch (ctx_type) {
+	case CONTEXT_STORE_AND_FORWARD:
+		flash_area_write(saf_area, offset, buffer, size);
+		break;
+	default:
+		snprintk(path, sizeof(path), "smtc_modem_hal/context/%d/%d", ctx_type, offset);
+		prv_store(path, offset, buffer, size);
+		break;
+	}
 }
 
 void smtc_modem_hal_crashlog_store(const uint8_t *crash_string, uint8_t crash_string_length)
@@ -556,6 +592,30 @@ void smtc_modem_hal_user_lbm_irq( void )
 {
 	prv_hal_cb->user_lbm_irq();
 }
+
+#ifdef CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD
+void smtc_modem_hal_context_flash_pages_erase( const modem_context_type_t ctx_type, uint32_t offset, uint8_t nb_page )
+{
+	switch (ctx_type) {
+	case CONTEXT_STORE_AND_FORWARD:
+		flash_area_erase(saf_area, offset, nb_page * 4096);
+		break;
+	default:
+		/* PANIC */
+		break;
+	}
+}
+
+uint16_t smtc_modem_hal_store_and_forward_get_number_of_pages( )
+{
+    return 10;
+}
+
+uint16_t smtc_modem_hal_flash_get_page_size( )
+{
+    return 4096;
+}
+#endif /* CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD */
 
 /*
  * NOTE: smtc_modem_hal_print_trace() is implemented in ./logging/smtc_modem_hal_additional_prints.c

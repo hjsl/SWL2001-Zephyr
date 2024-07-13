@@ -113,12 +113,20 @@ config LORA_BASICS_MODEM_TIME_SYNC
 
 config LORA_BASICS_MODEM_GEOLOCATION
     bool "Enable geolocation support"
+    select LORA_BASICS_MODEM_STORE_AND_FORWARD
+    select LORA_BASICS_MODEM_ALMANAC
+    default n
+
+config LORA_BASICS_MODEM_STORE_AND_FORWARD
+    bool "Enable store and forward"
+    default n
+
+config LORA_BASICS_MODEM_ALMANAC
+    bool "Enable almanac update service"
     default n
 
 module = LORA_BASICS_MODEM
 module-str = LORA_BASICS_MODEM
 source "subsys/logging/Kconfig.template.log_config"
-
-rsource "apps_common/Kconfig"
 
 endif # LORA_BASICS_MODEM

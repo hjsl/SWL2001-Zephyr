@@ -1,0 +1,22 @@
+menu "Application"
+
+config LORAWAN_DEV_EUI
+    string "Device EUI"
+
+config LORAWAN_JOIN_EUI
+    string "Join EUI"
+    default "0000000000000000"
+
+config LORAWAN_APP_KEY
+    string "Application key"
+
+endmenu
+
+menu "Zephyr"
+source "Kconfig.zephyr"
+endmenu
+
+module = APP
+module-str = APP
+source "subsys/logging/Kconfig.template.log_config"
+

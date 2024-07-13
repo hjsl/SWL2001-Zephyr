@@ -316,7 +316,7 @@ rp_hook_status_t rp_task_enqueue( radio_planner_t* rp, const rp_task_t* task, ui
     if( ( task->state == RP_TASK_STATE_SCHEDULE ) && ( ( ( int32_t ) ( task->start_time_ms - now ) <= 0 ) ) )
     {
         SMTC_MODEM_HAL_TRACE_PRINTF( " RP: Task enqueue impossible. Task is in past start_time_ms:%d - now:%d = %d\n",
-                                     task->start_time_ms, now, task->start_time_ms - now );
+                task->start_time_ms, now, task->start_time_ms - now );
         return RP_TASK_STATUS_SCHEDULE_TASK_IN_PAST;
     }
 
@@ -325,7 +325,7 @@ rp_hook_status_t rp_task_enqueue( radio_planner_t* rp, const rp_task_t* task, ui
     {
         SMTC_MODEM_HAL_TRACE_PRINTF(
             " RP: Task enqueue impossible. Task is too far in future start_time_ms:%d - now:%d = %d\n",
-            task->start_time_ms, now, task->start_time_ms - now );
+                task->start_time_ms, now, task->start_time_ms - now );
         return RP_TASK_STATUS_TASK_TOO_FAR_IN_FUTURE;
     }
 
@@ -1126,11 +1126,19 @@ static void rp_task_print( const radio_planner_t* rp, const rp_task_t* task )
     case RP_TASK_TYPE_RX_BLE_SCAN:
         SMTC_MODEM_HAL_RP_TRACE_PRINTF( " TASK_RX_BLE_SCAN " );
         break;
-    case RP_TASK_TYPE_NONE:
     case RP_TASK_TYPE_GNSS_SNIFF:
+        SMTC_MODEM_HAL_RP_TRACE_PRINTF( " TASK_GNSS_SNIFF " );
+        break;
     case RP_TASK_TYPE_WIFI_SNIFF:
+        SMTC_MODEM_HAL_RP_TRACE_PRINTF( " TASK_WIFI_SNIFF " );
+        break;
     case RP_TASK_TYPE_GNSS_RSSI:
+        SMTC_MODEM_HAL_RP_TRACE_PRINTF( " TASK_GNSS_RSSI " );
+        break;
     case RP_TASK_TYPE_WIFI_RSSI:
+        SMTC_MODEM_HAL_RP_TRACE_PRINTF( " TASK_WIFI_RSSI " );
+        break;
+    case RP_TASK_TYPE_NONE:
         SMTC_MODEM_HAL_RP_TRACE_PRINTF( " TASK_EMPTY " );
         break;
     default:

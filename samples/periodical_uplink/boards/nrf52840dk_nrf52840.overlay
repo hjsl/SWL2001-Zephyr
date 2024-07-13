@@ -26,7 +26,7 @@
         tcxo-supply = <LR11XX_TCXO_SUPPLY_1_8V>;
         tcxo-wakeup-time = <5>;
 
-        lf-clk = <LR11XX_LFCLK_RC>;
+        lf-clk = <LR11XX_LFCLK_XTAL>;
         reg-mode = <LR11XX_REG_MODE_DCDC>;
 
         rf-sw-enable = <(LR11XX_DIO5 | LR11XX_DIO6 | LR11XX_DIO7)>;
@@ -56,3 +56,24 @@
 	};
 };
 
+
+&slot1_partition {
+    reg = <0x72000 0x66000>;
+};
+
+&storage_partition {
+    reg = <0xf8000 0x8000>;
+};
+
+&slot0_partition {
+    reg = <0xc000 0x66000>;
+};
+
+&flash0 {
+    partitions {
+        saf_partition: partition@d8000 {
+            reg = <0xd8000 0x20000>;
+            label = "store-and-forward";
+        };
+    };
+};

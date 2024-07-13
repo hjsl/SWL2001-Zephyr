@@ -156,7 +156,7 @@ static modem_service_config_t modem_service_config[] = {
 #endif
 #ifdef ADD_SMTC_STORE_AND_FORWARD
     { .service_id = 0, .stack_id = 0, .callbacks_init_service = store_and_forward_flash_services_init },
-// { .service_id = 0, .stack_id = 0, .callbacks_init_service = store_and_forward_services_init },
+    { .service_id = 0, .stack_id = 0, .callbacks_init_service = store_and_forward_services_init },
 #endif
 };
 

@@ -32,6 +32,10 @@ extern "C" {
 #define MODEM_HAL_DEEP_DBG_TRACE MODEM_HAL_FEATURE_ON
 #endif
 
+#if CONFIG_LORA_BASICS_MODEM_LOG_LEVEL_DBG
+#define GNSS_ALMANAC_DEEP_DBG_TRACE MODEM_HAL_FEATURE_ON
+#endif
+
 #if (MODEM_HAL_DBG_TRACE)
 
 #define SMTC_MODEM_HAL_TRACE_PRINTF(...)	   smtc_modem_hal_print_trace(__VA_ARGS__);
@@ -99,12 +103,12 @@ extern "C" {
 #define SMTC_MODEM_HAL_RP_TRACE_MSG(msg)    SMTC_MODEM_HAL_TRACE_PRINTF(msg)
 #define SMTC_MODEM_HAL_RP_TRACE_PRINTF(...) SMTC_MODEM_HAL_TRACE_PRINTF(__VA_ARGS__)
 
-#else /* MODEM_HAL_DBG_TRACE */
+#else /* MODEM_HAL_DBG_TRACE_RP */
 
 #define SMTC_MODEM_HAL_RP_TRACE_MSG(msg)
 #define SMTC_MODEM_HAL_RP_TRACE_PRINTF(...)
 
-#endif /* MODEM_HAL_DBG_TRACE */
+#endif /* MODEM_HAL_DBG_TRACE_RP */
 
 #ifdef __cplusplus
 }

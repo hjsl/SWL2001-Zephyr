@@ -6,6 +6,7 @@
 #include <smtc_modem_api.h>
 #include <smtc_modem_hal_init.h>
 #include <smtc_modem_utilities.h>
+#include <smtc_modem_geolocation_api.h>
 
 /* include hal and ralf so that initialization can be done */
 #include <ralf_lr11xx.h>
@@ -13,9 +14,13 @@
 
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
+
+#include <stdio.h>
+
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(main);
+
 
 #define STACK_ID 0
 #define PERIODICAL_UPLINK_DELAY_S 60
@@ -26,10 +31,7 @@ static uint8_t rx_payload_size = 0;
 static smtc_modem_dl_metadata_t rx_metadata = { 0 };
 static uint8_t rx_remaining = 0;
 
-static uint32_t uplink_counter = 0;
-
 static void modem_event_callback(void);
-static void send_uplink_counter_on_port(uint8_t port);
 static int get_battery_level_callback(uint32_t *value);
 static int get_temperature_callback(int32_t *value);
 static int get_voltage_callback(uint32_t *value);
@@ -43,12 +45,13 @@ static void user_lbm_irq_callback(void);
 /**
  * @brief Port to send uplinks on
  */
-#define LORAWAN_APP_PORT 2
+#define KEEP_ALIVE_PORT (2)
+#define KEEP_ALIVE_PERIOD_S (3600 / 2)
+#define KEEP_ALIVE_SIZE (4)
+uint8_t keep_alive_payload[KEEP_ALIVE_SIZE] = { 0 };
 
-/**
- * @brief Should uplinks be confirmed
- */
-#define LORAWAN_CONFIRMED_MSG_ON false
+#define GEOLOCATION_GNSS_SCAN_PERIOD_S (2 * 60)
+#define GEOLOCATION_WIFI_SCAN_PERIOD_S (3 * 60)
 
 /* ---------------- LoRaWAN Configurations ---------------- */
 
@@ -57,21 +60,9 @@ static void user_lbm_irq_callback(void);
 
 K_SEM_DEFINE(main_sleep_sem, 0, 1);
 
-// /*LoRaWAN configuration */
-// static struct smtc_app_lorawan_cfg lorawan_cfg = {
-// 	.use_chip_eui_as_dev_eui = false,
-
-/* Home */
-static const uint8_t dev_eui[] = {0xB5, 0x09, 0xB4, 0x53, 0xFA, 0x12, 0x58, 0x79};
-static const uint8_t join_eui[] = {0xE0, 0x96, 0xB0, 0x1D, 0xA5, 0xBF, 0x49, 0x4A};
-static const uint8_t app_key[] = {0xDA, 0x87, 0xEC, 0x9C, 0x3E, 0xF7, 0x43, 0x52, 0x49, 0x2D, 0x67, 0x08, 0x2F, 0x2E, 0xA2, 0xE6};
-// 	.dev_eui = {0xb5, 0x09, 0xb4, 0x53, 0xfa, 0x12, 0x58, 0x79},
-// 	.join_eui = {0xe0, 0x96, 0xb0, 0x1d, 0xa5, 0xbf, 0x49, 0x4a},
-// 	.app_key =  {0xda, 0x87, 0xec, 0x9c, 0x3e, 0xf7, 0x43, 0x52, 0x49, 0x2d, 0x67, 0x08,
-//   0x2f, 0x2e, 0xa2, 0xe6},
-// 	.class = SMTC_MODEM_CLASS_A,
-// 	.region = SMTC_MODEM_REGION_EU_868,
-// };
+static uint8_t dev_eui[8] = { 0 };
+static uint8_t join_eui[8] = { 0 };
+static uint8_t app_key[16] = { 0 };
 
 static struct smtc_modem_hal_cb hal_callbacks = {
 	.get_battery_level = get_battery_level_callback,
@@ -100,28 +91,8 @@ static int get_voltage_callback(uint32_t *value)
 
 static void user_lbm_irq_callback(void)
 {
+	// LOG_WRN("%s", __func__);
 	k_sem_give(&main_sleep_sem);
-}
-
-static void send_uplink_counter_on_port( uint8_t port )
-{
-    smtc_modem_return_code_t rc;
-
-    // Send uplink counter on port 102
-    uint8_t buff[4] = { 0 };
-    buff[0]         = ( uplink_counter >> 24 ) & 0xFF;
-    buff[1]         = ( uplink_counter >> 16 ) & 0xFF;
-    buff[2]         = ( uplink_counter >> 8 ) & 0xFF;
-    buff[3]         = ( uplink_counter & 0xFF );
-    
-    rc = smtc_modem_request_uplink(STACK_ID, port, false, buff, 4);
-    if (rc != SMTC_MODEM_RC_OK) {
-        LOG_ERR("Failed to send uplink, err: %d", rc);
-        return;
-    }
-
-    // Increment uplink counter
-    uplink_counter++;
 }
 
 static void modem_event_callback(void)
@@ -130,8 +101,13 @@ static void modem_event_callback(void)
 	smtc_modem_event_t current_event;
 	uint8_t event_pending_count;
 	uint8_t stack_id = STACK_ID;
-	
-	LOG_INF("modem_event_callback");
+	smtc_modem_gnss_event_data_scan_done_t gnss_scan_done_data;
+	smtc_modem_gnss_event_data_terminated_t gnss_terminated_data;
+	smtc_modem_wifi_event_data_scan_done_t wifi_scan_done_data;
+	smtc_modem_wifi_event_data_terminated_t wifi_terminated_data;
+	smtc_modem_almanac_demodulation_event_data_almanac_update_t almanac_demodulation_data;
+	uint32_t gps_time_s;
+	uint32_t gps_fractional_s;
 
 	do {
 		rc = smtc_modem_get_event(&current_event, &event_pending_count);
@@ -174,14 +150,78 @@ static void modem_event_callback(void)
 					break;
 				}
 
+				rc = smtc_modem_almanac_demodulation_set_constellations(stack_id, SMTC_MODEM_GNSS_CONSTELLATION_GPS_BEIDOU);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to set almanac demodulation constellations, err: %d", rc);
+					break;
+				}
+
+				// rc = smtc_modem_almanac_demodulation_start(stack_id);
+				// if (rc != SMTC_MODEM_RC_OK) {
+				// 	LOG_ERR("Failed to start almanac demodulation, err: %d", rc);
+				// 	break;
+				// }
+
+     			rc = smtc_modem_store_and_forward_flash_clear_data( stack_id );
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to clear flash data, err: %d", rc);
+					break;
+				}
+            
+				rc = smtc_modem_store_and_forward_set_state( stack_id, SMTC_MODEM_STORE_AND_FORWARD_ENABLE );
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to enable store and forward, err: %d", rc);
+					break;
+				}
+       
+				rc = smtc_modem_gnss_send_mode(stack_id, SMTC_MODEM_SEND_MODE_STORE_AND_FORWARD);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to set gnss send mode, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_wifi_send_mode(stack_id, SMTC_MODEM_SEND_MODE_STORE_AND_FORWARD);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to set wifi send mode, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_gnss_set_constellations(stack_id, SMTC_MODEM_GNSS_CONSTELLATION_GPS_BEIDOU);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to set gnss scan constellations, err: %d", rc);
+					break;
+				}
+
+				// rc = smtc_modem_alarm_start_timer(60);
+				// if (rc != SMTC_MODEM_RC_OK) {
+				// 	LOG_ERR("Failed to start timer, err: %d", rc);
+				// 	break;
+				// }
+
+				// rc = smtc_modem_gnss_scan(stack_id, SMTC_MODEM_GNSS_MODE_STATIC, 0);
+				// if (rc != SMTC_MODEM_RC_OK) {
+				// 	LOG_ERR("Failed to start gnss scan, err: %d", rc);
+				// 	break;
+				// }
+
+				// rc = smtc_modem_wifi_scan(stack_id, 0);
+				// if (rc != SMTC_MODEM_RC_OK) {
+				// 	LOG_ERR("Failed to start wifi scan, err: %d", rc);
+				// 	break;
+				// }
+
 				break;
 
 			case SMTC_MODEM_EVENT_ALARM:
 				LOG_INF("Event received: ALARM");
 
-				send_uplink_counter_on_port(101);
+				rc = smtc_modem_request_uplink(stack_id, KEEP_ALIVE_PORT, false, keep_alive_payload, KEEP_ALIVE_SIZE);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to request uplink, err: %d", rc);
+					break;
+				}
 
-				rc = smtc_modem_alarm_start_timer(PERIODICAL_UPLINK_DELAY_S);
+				rc = smtc_modem_alarm_start_timer(60);
 				if (rc != SMTC_MODEM_RC_OK) {
 					LOG_ERR("Failed to start timer, err: %d", rc);
 					break;
@@ -192,11 +232,41 @@ static void modem_event_callback(void)
 			case SMTC_MODEM_EVENT_JOINED:
 				LOG_INF("Event received: JOINED");
 
-				send_uplink_counter_on_port(101);
+				// send_uplink_counter_on_port(101);
 
-				rc = smtc_modem_alarm_start_timer(DELAY_FIRST_MSG_AFTER_JOIN);
+				// rc = smtc_modem_set_nb_trans(stack_id, custom_nb_trans);
+				// if (rc != SMTC_MODEM_RC_OK) {
+				// 	LOG_ERR("Failed to set number of transmission, err: %d", rc);
+				// 	break;
+				// }
+
+				// rc = smtc_modem_alarm_start_timer(KEEP_ALIVE_PERIOD_S);
+				// if (rc != SMTC_MODEM_RC_OK) {
+				// 	LOG_ERR("Failed to start timer, err: %d", rc);
+				// 	break;
+				// }
+
+				rc = smtc_modem_start_alcsync_service(stack_id);
 				if (rc != SMTC_MODEM_RC_OK) {
-					LOG_ERR("Failed to start timer, err: %d", rc);
+					LOG_ERR("Failed to start alcsync service, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_trigger_alcsync_request(stack_id);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to trigger alcsync request, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_almanac_start(stack_id);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to start almanac update service, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_trig_lorawan_mac_request(stack_id, SMTC_MODEM_LORAWAN_MAC_REQ_DEVICE_TIME);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to request device time, err: %d", rc);
 					break;
 				}
 
@@ -226,29 +296,152 @@ static void modem_event_callback(void)
 				LOG_INF("Event received: JOINFAIL");
 				break;
 
+			case SMTC_MODEM_EVENT_GNSS_ALMANAC_DEMOD_UPDATE:
+				LOG_INF("Event received: GNSS_ALMANAC_DEMOD_UPDATE");
 
+				rc = smtc_modem_almanac_demodulation_get_event_data_almanac_update(stack_id, &almanac_demodulation_data);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get almanac demodulation data, err: %d", rc);
+					break;
+				}
+
+				LOG_INF("progress: GPS %u%%, beidou %u%%", almanac_demodulation_data.update_progress_gps, almanac_demodulation_data.update_progress_beidou);
+
+				/* Store progress in keep alive payload. */
+				keep_alive_payload[0] = almanac_demodulation_data.update_progress_gps;
+				keep_alive_payload[1] = almanac_demodulation_data.update_progress_beidou;
+ 
+				break;
+
+			case SMTC_MODEM_EVENT_GNSS_SCAN_DONE:
+				LOG_INF("Event received: GNSS_SCAN_DONE");
+
+				rc = smtc_modem_gnss_get_event_data_scan_done(stack_id, &gnss_scan_done_data);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get gnss scan done data, err: %d", rc);
+					break;
+				}
+
+				for (int i = 0; i < gnss_scan_done_data.nb_scans_valid; i++) {
+					LOG_INF("Scan group: %u, %u SVs detected", i, gnss_scan_done_data.scans[i].nb_svs);
+					for (int j = 0; j < gnss_scan_done_data.scans[i].nb_svs; j++) {
+						/* Correct SV id. */
+						uint8_t sv_id = gnss_scan_done_data.scans[i].info_svs[j].satellite_id;
+						char sv_id_str[5] = { 0 };
+						if (sv_id < 64) {
+							/* GPS */
+							snprintf(sv_id_str, sizeof(sv_id_str), "G%02u", sv_id + 1);
+						} else {
+							/* Beidou */
+							snprintf(sv_id_str, sizeof(sv_id_str), "C%02u", sv_id - 63);
+						}
+
+						LOG_INF("SV id: %s snr: %d", sv_id_str, gnss_scan_done_data.scans[i].info_svs[j].cnr);
+					}
+				}
+
+				if (gnss_scan_done_data.indoor_detected) {
+					rc = smtc_modem_wifi_scan(stack_id, 0);
+					if (rc != SMTC_MODEM_RC_OK) {
+						LOG_ERR("Failed to start wifi scan, err: %d", rc);
+						break;
+					}
+				}
+
+				break;
+
+			case SMTC_MODEM_EVENT_GNSS_TERMINATED:
+				LOG_INF("Event received: GNSS_TERMINATED");
+
+				rc = smtc_modem_gnss_get_event_data_terminated(stack_id, &gnss_terminated_data);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get gnss terminated data, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_gnss_scan(stack_id, SMTC_MODEM_GNSS_MODE_STATIC, GEOLOCATION_GNSS_SCAN_PERIOD_S);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to start gnss scan, err: %d", rc);
+					break;
+				}
+
+				break;
+
+			case SMTC_MODEM_EVENT_WIFI_SCAN_DONE:
+				LOG_INF("Event received: WIFI_SCAN_DONE");
+				
+				rc = smtc_modem_wifi_get_event_data_scan_done(stack_id, &wifi_scan_done_data);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get wifi scan done data, err: %d", rc);
+					break;
+				}
+
+				LOG_INF("Got %u networks", wifi_scan_done_data.nbr_results);
+
+				break;
+
+			case SMTC_MODEM_EVENT_WIFI_TERMINATED:
+				LOG_INF("Event received: WIFI_TERMINATED");
+				
+				rc = smtc_modem_wifi_get_event_data_terminated(stack_id, &wifi_terminated_data);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get wifi terminated data, err: %d", rc);
+					break;
+				}
+
+				rc = smtc_modem_wifi_scan(stack_id, GEOLOCATION_WIFI_SCAN_PERIOD_S);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to start gnss scan, err: %d", rc);
+					break;
+				}
+
+				break;
+
+			case SMTC_MODEM_EVENT_ALCSYNC_TIME:
+				LOG_INF("Event received: ALCSYNC_TIME");
+
+				rc = smtc_modem_get_alcsync_time(stack_id, &gps_time_s);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get alcsync time, err: %d", rc);
+					break;
+				}
+
+				LOG_INF("Alcsync time: %u", gps_time_s);
+
+				break;
+
+			case SMTC_MODEM_EVENT_LORAWAN_MAC_TIME:
+				LOG_INF("Event received: LORAWAN_MAC_TIME");
+
+				rc = smtc_modem_get_lorawan_mac_time(stack_id, &gps_time_s, &gps_fractional_s);
+				if (rc != SMTC_MODEM_RC_OK) {
+					LOG_ERR("Failed to get lorawan mac time, err: %d", rc);
+					break;
+				}
+
+				LOG_INF("Lorawan mac time: %u.%u", gps_time_s, gps_fractional_s);
+
+				
+
+				break;
 
 			default:
 				LOG_INF("Event received");
 				break;
 		}
 	} while (event_pending_count > 0);
-
 }
-
-
-
 
 
 int main(void)
 {
+	hex2bin(CONFIG_LORAWAN_DEV_EUI, 16, dev_eui, sizeof(dev_eui));
+	hex2bin(CONFIG_LORAWAN_JOIN_EUI, 16, join_eui, sizeof(join_eui));
+	hex2bin(CONFIG_LORAWAN_APP_KEY, 32, app_key, sizeof(app_key));
+
 	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(lr11xx));
 	smtc_modem_hal_init(dev, &hal_callbacks);
-
-	// while (device_is_ready(DEVICE_DT_GET(DT_NODELABEL(uart0)))) {
-	// 	LOG_ERR("Device %s is not ready", dev->name);
-	// 	k_sleep(K_SECONDS(1));
-	// }
+	smtc_modem_set_radio_context(dev);
 
 	smtc_modem_init(&modem_event_callback);
 

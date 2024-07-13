@@ -21,7 +21,7 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_CRYPTOGRAPHY_SOFT
     smtc/smtc_modem_core/smtc_modem_crypto/soft_secure_element/cmac.c
     smtc/smtc_modem_core/smtc_modem_crypto/soft_secure_element/soft_se.c
 )
-zephyr_library_include_directories_ifdef(CONFIG_LORA_BASICS_MODEM_CRYPTOGRAPHY_SOFT smtc_modem_core/smtc_modem_crypto/soft_secure_element)
+zephyr_library_include_directories_ifdef(CONFIG_LORA_BASICS_MODEM_CRYPTOGRAPHY_SOFT smtc/smtc_modem_core/smtc_modem_crypto/soft_secure_element)
 
 # CRYPTO = LR11XX
 zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_CRYPTOGRAPHY_LR11XX
@@ -72,7 +72,9 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_REGION_WW_2G4 smtc/smtc_mo
 # MODEM_TRACE, MODEM_DEEP_TRACE, PERF_TEST, MIDDLEWARE
 
 zephyr_library_compile_definitions(NUMBER_OF_STACKS=1)
+zephyr_library_compile_definitions(MODEM_HAL_DBG_TRACE=MODEM_HAL_FEATURE_OFF)
 zephyr_library_compile_definitions(MODEM_HAL_DBG_TRACE_RP=MODEM_HAL_FEATURE_ON)
+zephyr_library_compile_definitions(GNSS_ALMANAC_DEEP_DBG_TRACE=MODEM_HAL_FEATURE_OFF)
 
 # these sources are always included
 zephyr_library_sources(
@@ -176,12 +178,12 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_FILE_UPLOAD smtc/smtc_mode
 # ADD_SMTC_ALC_SYNC
 zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_TIME_SYNC ADD_SMTC_ALC_SYNC)
 zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_TIME_SYNC
-    smtc/smtc_modem_core/modem_services/smtc_clock_sync.c
-    smtc/smtc_modem_core/smtc_modem_services/src/alc_sync/alc_sync.c
+    smtc/smtc_modem_core/lorawan_packages/application_layer_clock_synchronization/v1.0.0/lorawan_alcsync_v1.0.0.c
 )
 
 # ADD_LBM_GEOLOCATION
 zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION ADD_LBM_GEOLOCATION)
+zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION ADD_APP_GEOLOCATION)
 
 zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION
     smtc/smtc_modem_core/geolocation_services/gnss_helpers.c
@@ -194,6 +196,20 @@ zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_GEOLOCATION
     smtc/smtc_modem_core/geolocation_services/wifi_helpers.c
 )
 
+# ADD_SMTC_STORE_AND_FORWARD
+zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD ADD_SMTC_STORE_AND_FORWARD)
+zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_STORE_AND_FORWARD
+    smtc/smtc_modem_core/modem_utilities/circularfs.c
+    smtc/smtc_modem_core/modem_services/store_and_forward/store_and_forward.c
+    smtc/smtc_modem_core/modem_services/store_and_forward/store_and_forward_flash.c
+)
+
+# ADD_ALMANAC
+zephyr_library_compile_definitions_ifdef(CONFIG_LORA_BASICS_MODEM_ALMANAC ADD_ALMANAC)
+zephyr_library_sources_ifdef(CONFIG_LORA_BASICS_MODEM_ALMANAC
+    smtc/smtc_modem_core/modem_services/almanac_packages/almanac.c
+)
+
 # ----- public includes (visible outside of the library) -----
 zephyr_include_directories(
     smtc/smtc_modem_api
@@ -202,7 +218,7 @@ zephyr_include_directories(
     # also cause ralf_lr11xx or some other ralf_ has to be included from the app.
     smtc/smtc_modem_core/smtc_ralf/src
     smtc/smtc_modem_core/smtc_ral/src
-
+    smtc/smtc_modem_core/geolocation_services
     smtc/smtc_modem_hal
 )
 
@@ -218,7 +234,7 @@ zephyr_include_directories(
 zephyr_library_compile_options(-w)
 
 # start new zephyr library for our code (warnings are enabled again for our hal-impl code)
-zephyr_library_named(smtc_hal)
+# zephyr_library_named(smtc_hal)
 
 # hal implementation
 zephyr_library_sources(smtc_modem_hal_impl/smtc_modem_hal.c)
